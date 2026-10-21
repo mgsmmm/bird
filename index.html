@@ -430,7 +430,7 @@
   let wormsEaten = 0;
   let soundEnabled = true;
 
-  // Initial Empty Default Leaderboards (No games played yet)
+  // Initial Empty Default Leaderboards (Saved permanently in localStorage)
   function getInitialLeaderboard(worldKey) {
     const list = [];
     for (let i = 1; i <= 100; i++) {
@@ -1022,11 +1022,6 @@
   document.getElementById('closeHowBtn').addEventListener('click', () => howModal.classList.add('hidden'));
 
   switchCharacter('parrot');
-  
-  // Clear any pre-populated leaderboards in local storage to ensure fresh default state
-  ['parrot', 'eagle', 'red'].forEach(k => {
-    localStorage.removeItem(`lb_top100_${k}`);
-  });
 
   resetGame();
   loop();
