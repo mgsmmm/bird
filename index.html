@@ -36,7 +36,7 @@
     justify-content: center;
     overflow-x: hidden;
     margin: 0;
-    padding: clamp(6px, 2vw, 16px);
+    padding: clamp(4px, 2vw, 16px);
     color: #ffffff;
   }
 
@@ -86,19 +86,18 @@
   .canvas-container {
     position: relative;
     width: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    aspect-ratio: 16 / 9;
+    max-height: 80vh;
     overflow: hidden;
     border-radius: clamp(12px, 2vw, 24px);
     background: #000;
   }
 
+  /* Force stretched rendering on mobile viewports */
   canvas {
     width: 100%;
-    height: auto;
-    max-height: 75dvh;
-    object-fit: contain;
+    height: 100%;
+    object-fit: fill;
     touch-action: manipulation;
     display: block;
   }
@@ -184,7 +183,7 @@
       
       <!-- Canvas Wrapper -->
       <div id="canvasBox" class="canvas-container glass-card rounded-2xl sm:rounded-3xl shadow-2xl relative flex-1 w-full">
-        <canvas id="gameCanvas"></canvas>
+        <canvas id="gameCanvas" width="960" height="540"></canvas>
 
         <!-- Start Overlay -->
         <div id="startModal" class="absolute inset-0 glass-card bg-slate-950/80 flex items-center justify-center p-3 sm:p-6 transition-opacity duration-300">
@@ -336,19 +335,16 @@
 
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
-  
-  // Dynamic Device Resolution Detection (Adapts to Mobile and Desktop viewports cleanly)
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
-  const W = isMobile ? 540 : 960;
-  const H = isMobile ? 960 : 540; // Portrait mode for mobile, Landscape for desktop!
+  const W = 960;
+  const H = 540;
 
-  function setupCanvasResolution() {
+  function setupCanvasDPI() {
     const dpr = window.devicePixelRatio || 1;
     canvas.width = W * dpr;
     canvas.height = H * dpr;
     ctx.scale(dpr, dpr);
   }
-  setupCanvasResolution();
+  setupCanvasDPI();
 
   const scoreDisplay = document.getElementById('scoreDisplay');
   const bestDisplay = document.getElementById('bestDisplay');
@@ -520,7 +516,7 @@
     } catch (e) {}
   }
 
-  let flyer = { x: W * 0.25, y: H * 0.45, vy: 0, radiusX: 18, radiusY: 13, rotation: 0 };
+  let flyer = { x: 180, y: 240, vy: 0, radiusX: 18, radiusY: 13, rotation: 0 };
   let obstacles = [], worms = [], particles = [], floatTexts = [];
   let frame = 0, speed = 3.5, spawnTimer = 0, bgStars = [];
 
@@ -556,10 +552,10 @@
     gapPassCount = 0;
     wormsEaten = 0;
     frame = 0;
-    speed = isMobile ? 3.8 : 3.5;
+    speed = 3.5;
     spawnTimer = 0;
 
-    flyer = { x: W * 0.25, y: H * 0.45, vy: 0, radiusX: 18, radiusY: 13, rotation: 0 };
+    flyer = { x: 180, y: 240, vy: 0, radiusX: 18, radiusY: 13, rotation: 0 };
     obstacles = [];
     worms = [];
     particles = [];
@@ -591,7 +587,7 @@
   function flap() {
     if (state === 'playing') {
       initAudioContext();
-      flyer.vy = isMobile ? -7.2 : -6.8;
+      flyer.vy = -6.8;
       playSound('flap');
       createPuff(flyer.x - 10, flyer.y + 6, '#ffffff', 5);
     }
@@ -646,10 +642,19 @@
 
     if (activeCharKey === 'parrot') {
       ctx.fillStyle = '#fef08a';
-      ctx.beginPath(); ctx.arc(W * 0.85, H * 0.15, 45, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(820, 85, 45, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+      for (let i = 0; i < 3; i++) {
+        const cx = (frame * 0.3 + i * 280) % (W + 200) - 100;
+        ctx.beginPath();
+        ctx.arc(cx, 100 + i * 20, 24, 0, Math.PI * 2);
+        ctx.arc(cx + 20, 90 + i * 20, 30, 0, Math.PI * 2);
+        ctx.arc(cx + 45, 100 + i * 20, 20, 0, Math.PI * 2);
+        ctx.fill();
+      }
     } else if (activeCharKey === 'eagle') {
       ctx.fillStyle = '#fef3c7';
-      ctx.beginPath(); ctx.arc(W * 0.8, H * 0.18, 42, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(780, 95, 42, 0, Math.PI * 2); ctx.fill();
       bgStars.forEach(s => {
         ctx.fillStyle = `rgba(255, 255, 255, ${0.3 + Math.sin(frame * 0.05 + s.x) * 0.5})`;
         ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
@@ -665,7 +670,7 @@
     ctx.fillStyle = c.hillsColor;
     ctx.beginPath(); ctx.moveTo(0, H);
     for (let x = 0; x <= W; x += 40) {
-      ctx.lineTo(x, (H - 40) + Math.sin(x * 0.015 + frame * 0.002) * 18);
+      ctx.lineTo(x, 425 + Math.sin(x * 0.015 + frame * 0.002) * 18);
     }
     ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
     ctx.fillStyle = c.groundColor;
@@ -745,9 +750,9 @@
   }
 
   function spawnObstacle() {
-    const gap = isMobile ? 175 : 155;
+    const gap = 155;
     const topH = 60 + Math.random() * (H - gap - 120);
-    const x = W + 40, w = isMobile ? 65 : 75;
+    const x = W + 40, w = 75;
     obstacles.push({ x, w, topH, gap, passed: false });
     gapPassCount++;
     if (gapPassCount % 2 === 0) {
@@ -772,7 +777,7 @@
   function update() {
     frame++;
     if (state === 'playing') {
-      speed = Math.min(5.8, (isMobile ? 3.8 : 3.5) + score * 0.012);
+      speed = Math.min(5.5, 3.5 + score * 0.012);
       flyer.vy += 0.33;
       flyer.y += flyer.vy;
 
@@ -817,7 +822,7 @@
       worms = worms.filter(w => w.x > -40 && !w.taken);
       if (flyer.y < 0 || flyer.y > H - 30) endGame();
     } else if (state === 'menu') {
-      flyer.y = (H * 0.45) + Math.sin(frame * 0.05) * 12;
+      flyer.y = 240 + Math.sin(frame * 0.05) * 12;
       flyer.vy = 0;
     }
 
@@ -836,8 +841,8 @@
       });
       worms.forEach(drawWorm);
     } else {
-      drawObstacle(W * 0.7, 0, 75, H * 0.3, true);
-      drawObstacle(W * 0.78, H * 0.65, 75, H * 0.35, false);
+      drawObstacle(680, 0, 75, 160, true);
+      drawObstacle(740, 340, 75, 200, false);
     }
 
     particles.forEach(p => {
