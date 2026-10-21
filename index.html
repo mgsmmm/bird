@@ -91,6 +91,12 @@
     50% { transform: translateY(-7px) rotate(4deg); }
   }
   .float-worm { animation: floatWorm 2s infinite ease-in-out; }
+
+  @keyframes creditGlow {
+    0%, 100% { opacity: 0.7; text-shadow: 0 0 4px rgba(16, 185, 129, 0.2); }
+    50% { opacity: 1; text-shadow: 0 0 10px rgba(16, 185, 129, 0.6); }
+  }
+  .credit-anim { animation: creditGlow 3s infinite ease-in-out; }
 </style>
 </head>
 <body class="flex flex-col items-center justify-center p-3 sm:p-6 text-white min-h-screen">
@@ -244,9 +250,16 @@
           <button id="soundToggle" class="flex-1 py-3 px-3 rounded-xl glass-btn text-xs font-bold flex items-center justify-center gap-2"><span id="soundIcon">🔊</span> <span class="hidden sm:inline">Audio</span></button>
           <button id="howToggle" class="flex-1 py-3 px-3 rounded-xl glass-btn text-xs font-bold flex items-center justify-center gap-2"><span>❓</span> <span class="hidden sm:inline">Rules</span></button>
         </div>
-        <div class="hidden lg:block w-full bg-black/30 p-3 rounded-2xl border border-white/10 text-center">
-          <div class="text-[10px] uppercase font-bold text-white/50">Active World</div>
-          <div id="sideWorldName" class="text-xs font-black text-emerald-300 mt-0.5">Meadow World</div>
+        
+        <div class="w-full flex flex-col gap-2">
+          <div class="w-full bg-black/30 p-3 rounded-2xl border border-white/10 text-center">
+            <div class="text-[10px] uppercase font-bold text-white/50">Active World</div>
+            <div id="sideWorldName" class="text-xs font-black text-emerald-300 mt-0.5">Meadow World</div>
+          </div>
+          <!-- Credit to Mark (hennessy) with clean subtle animation -->
+          <div class="text-center">
+            <span class="text-[10px] font-extrabold tracking-wider text-emerald-400 credit-anim block">By Mark (hennessy)</span>
+          </div>
         </div>
       </aside>
     </div>
@@ -254,7 +267,6 @@
 
 <script>
 (() => {
-  // YOUR FIREBASE CONFIGURATION KEYS PRE-PLUGGED
   const firebaseConfig = {
     apiKey: "AIzaSyDFx15qAqYZfwAYt-BdWsuZwcfK2Soxofs",
     authDomain: "hennessy-f5cdb.firebaseapp.com",
@@ -265,7 +277,6 @@
     measurementId: "G-8HXF9HQHYH"
   };
 
-  // Initialize Firebase
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
 
