@@ -219,16 +219,16 @@
           <div class="max-w-md w-full bg-slate-900/95 border border-amber-400/50 rounded-2xl sm:rounded-3xl p-5 sm:p-6 text-center backdrop-blur-xl shadow-2xl">
             <div class="text-4xl sm:text-5xl mb-1 sm:mb-2">🏆</div>
             <h2 class="text-xl sm:text-2xl font-black text-amber-300">TOP 100 HIGH SCORE!</h2>
-            <p class="text-slate-300 text-[11px] sm:text-xs mt-0.5 mb-3">You made it onto the Permanent Cloud Leaderboard!</p>
+            <p class="text-slate-300 text-[11px] sm:text-xs mt-0.5 mb-3">You made it onto the Leaderboard!</p>
             <div class="bg-white/5 p-3 rounded-xl sm:rounded-2xl border border-white/10 mb-3">
               <div class="text-[9px] sm:text-[10px] uppercase font-bold text-white/50">Your Score</div>
               <div id="hsScoreDisplay" class="text-2xl sm:text-3xl font-black text-amber-300">0</div>
             </div>
             <div class="text-left mb-3">
-              <label class="block text-[11px] sm:text-xs font-bold text-white/70 mb-1">Enter Flyer Name (3-6 characters, letters/numbers only):</label>
+              <label class="block text-[11px] sm:text-xs font-bold text-white/70 mb-1">Enter Flyer Name (3-6 characters):</label>
               <input id="playerNameInput" type="text" maxlength="6" placeholder="FLYER" 
                      class="w-full px-3 py-2.5 sm:py-3 rounded-xl bg-slate-800 text-white font-black text-center text-base sm:text-lg tracking-wider border border-white/20 focus:border-amber-400 focus:outline-none uppercase">
-              <p id="nameInputError" class="text-red-400 text-[11px] font-bold mt-1 hidden text-center">Name must be 3-6 alphanumeric characters (no symbols)!</p>
+              <p id="nameInputError" class="text-red-400 text-[11px] font-bold mt-1 hidden text-center">Name must be 3-6 alphanumeric characters!</p>
             </div>
             <button id="submitScoreBtn" class="w-full py-3 sm:py-3.5 rounded-xl font-extrabold bg-amber-400 hover:bg-amber-300 text-slate-950 shadow-lg transition-all text-xs sm:text-sm">
               Save Score & Play Again ↻
@@ -259,7 +259,7 @@
         <div id="leaderboardModal" class="absolute inset-0 glass-card bg-slate-950/90 flex items-center justify-center p-3 sm:p-6 hidden z-30">
           <div class="max-w-lg w-full max-h-[92%] bg-slate-900/95 border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-5 flex flex-col backdrop-blur-xl shadow-2xl">
             <div class="flex items-center justify-between mb-3">
-              <h3 class="text-base sm:text-xl font-black text-amber-300 flex items-center gap-2"><span>🏆</span> Global Cloud Leaderboard (Top 100)</h3>
+              <h3 class="text-base sm:text-xl font-black text-amber-300 flex items-center gap-2"><span>🏆</span> Global Leaderboard (Top 100)</h3>
               <button id="closeLeaderboardBtn" class="text-white/60 hover:text-white font-bold text-lg px-1.5">✕</button>
             </div>
             <div class="flex gap-1.5 sm:gap-2 mb-3 bg-white/5 p-1 sm:p-1.5 rounded-xl">
@@ -270,7 +270,7 @@
             <div id="top3Container" class="grid grid-cols-3 gap-2 mb-2 sm:mb-3"></div>
             <div id="leaderboardLoading" class="flex flex-col items-center justify-center py-12 gap-3 hidden">
               <div class="spinner"></div>
-              <p class="text-xs text-white/60 font-bold">Loading scores from Cloud Database...</p>
+              <p class="text-xs text-white/60 font-bold">Loading leaderboard...</p>
             </div>
             <div class="flex-1 overflow-y-auto custom-scroll pr-1">
               <table class="w-full text-left text-[11px] sm:text-xs">
@@ -291,7 +291,7 @@
               <li class="flex items-start gap-2"><span class="text-emerald-400 font-bold">•</span><span><strong>Controls:</strong> Click/tap canvas or press <strong>SPACE / Up Arrow</strong> to flap.</span></li>
               <li class="flex items-start gap-2"><span class="text-emerald-400 font-bold">•</span><span><strong>Pass Gaps:</strong> Pass obstacle pillars safely to earn <strong>+1 Point</strong>.</span></li>
               <li class="flex items-start gap-2"><span class="text-pink-400 font-bold">•</span><span><strong>Worm Power-Up:</strong> Pink worms spawn every 2 passes. Collect them to get <strong>+1 EXTRA POINT</strong>!</span></li>
-              <li class="flex items-start gap-2"><span class="text-amber-300 font-bold">•</span><span><strong>Global Leaderboard:</strong> Permanent scores are synchronized across all devices worldwide via Google Cloud Firestore (with offline fallback)!</span></li>
+              <li class="flex items-start gap-2"><span class="text-amber-300 font-bold">•</span><span><strong>Global Leaderboard:</strong> Synchronized online via Firebase Firestore with instant offline storage fallback!</span></li>
             </ul>
             <button id="closeHowBtn" class="w-full py-2.5 sm:py-3 rounded-xl font-black bg-emerald-500 text-slate-950 hover:bg-emerald-400 transition-all text-xs sm:text-sm">Got it! Let's Fly</button>
           </div>
@@ -323,7 +323,6 @@
 
 <script>
 (() => {
-  // Firebase Configuration & Initialization with Error Handling
   const firebaseConfig = {
     apiKey: "AIzaSyDFx15qAqYZfwAYt-BdWsuZwcfK2Soxofs",
     authDomain: "hennessy-f5cdb.firebaseapp.com",
@@ -341,7 +340,7 @@
     }
     db = firebase.firestore();
   } catch (err) {
-    console.warn("Firebase initialization failed. Running in offline localStorage mode.", err);
+    console.warn("Firebase init warning. Using local fallback.", err);
   }
 
   const canvas = document.getElementById('gameCanvas');
@@ -349,7 +348,6 @@
   const W = 960;
   const H = 540;
 
-  // High-DPI canvas crisp rendering adjustment
   function setupCanvasDPI() {
     const dpr = window.devicePixelRatio || 1;
     canvas.width = W * dpr;
@@ -412,24 +410,23 @@
     return list;
   }
 
-  // Refactored Firestore Fetching using Subcollections (`leaderboards/{worldKey}/scores`)
+  // Safe fetch with built-in fallback to avoid freezing when indexes are missing
   async function fetchLeaderboards() {
     for (const key of ['parrot', 'eagle', 'red']) {
       try {
-        if (!db) throw new Error("Firestore offline");
+        if (!db) throw new Error("No db");
         const snapshot = await db.collection('leaderboards').doc(key).collection('scores').orderBy('score', 'desc').limit(100).get();
         if (!snapshot.empty) {
           const scoresList = [];
           snapshot.forEach(doc => scoresList.push(doc.data()));
           leaderboardCache[key] = scoresList;
-          try { localStorage.setItem(getLocalStorageKey(key), JSON.stringify(scoresList)); } catch (e) {}
+          try { localStorage.setItem(getLocalStorageKey(key), JSON.stringify(scoresList)); } catch(e){}
         } else {
-          // Check local storage or generate initial list
           const localData = localStorage.getItem(getLocalStorageKey(key));
           leaderboardCache[key] = localData ? JSON.parse(localData) : getLocalFallbackLeaderboard();
         }
       } catch (e) {
-        console.warn(`Cloud fetch failed for ${key}, using local cache/fallback.`, e);
+        console.warn(`Firestore index or network query notice for ${key}. Falling back to local storage cache.`, e);
         try {
           const localData = localStorage.getItem(getLocalStorageKey(key));
           leaderboardCache[key] = localData ? JSON.parse(localData) : getLocalFallbackLeaderboard();
@@ -445,7 +442,6 @@
     return leaderboardCache[worldKey] || getLocalFallbackLeaderboard();
   }
 
-  // Refactored Firestore Saving using individual documents in subcollection
   async function saveScoreToCloud(worldKey, playerName, playerScore) {
     const newEntry = {
       name: playerName,
@@ -453,7 +449,6 @@
       date: new Date().toISOString().split('T')[0]
     };
 
-    // Update local cache & localStorage immediately
     const currentList = getLeaderboard(worldKey);
     currentList.push(newEntry);
     currentList.sort((a, b) => b.score - a.score);
@@ -462,15 +457,14 @@
 
     try {
       localStorage.setItem(getLocalStorageKey(worldKey), JSON.stringify(top100));
-    } catch (e) {}
+    } catch(e) {}
 
-    // Attempt cloud write asynchronously without blocking UI
     if (db) {
       try {
         const scoreId = `${playerName}_${Date.now()}`;
         await db.collection('leaderboards').doc(worldKey).collection('scores').doc(scoreId).set(newEntry);
       } catch (e) {
-        console.error("Failed to sync score to cloud database, saved locally.", e);
+        console.error("Cloud write notice:", e);
       }
     }
   }
@@ -482,12 +476,11 @@
     return testScore > lb[lb.length - 1].score;
   }
 
-  // Audio Context Autoplay Policy Unlock
   let audioCtx = null;
   function initAudioContext() {
     if (!audioCtx) {
-      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-      if (AudioContextClass) audioCtx = new AudioContextClass();
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) audioCtx = new AC();
     }
     if (audioCtx && audioCtx.state === 'suspended') {
       audioCtx.resume();
@@ -527,7 +520,6 @@
         gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
         osc.start(); osc.stop(audioCtx.currentTime + 0.25);
       } else if (type === 'triumph') {
-        // High score triumph chime
         osc.type = 'sine';
         osc.frequency.setValueAtTime(440, audioCtx.currentTime);
         osc.frequency.setValueAtTime(554.37, audioCtx.currentTime + 0.1);
@@ -620,7 +612,7 @@
   function triggerScreenShake() {
     const box = document.getElementById('canvasBox');
     box.classList.remove('shake');
-    void box.offsetWidth; // trigger reflow
+    void box.offsetWidth;
     box.classList.add('shake');
   }
 
@@ -784,21 +776,18 @@
     }
   }
 
-  // Precise Elliptical Collision Detection against Rectangles
   function checkCollision(obs) {
     const cx = flyer.x;
     const cy = flyer.y;
     const rx = flyer.radiusX;
     const ry = flyer.radiusY;
 
-    // Check top obstacle box
     const topClosestX = Math.max(obs.x, Math.min(cx, obs.x + obs.w));
     const topClosestY = Math.max(0, Math.min(cy, obs.topH));
     const topDx = (cx - topClosestX) / rx;
     const topDy = (cy - topClosestY) / ry;
     if ((topDx * topDx + topDy * topDy) <= 1) return true;
 
-    // Check bottom obstacle box
     const botY = obs.topH + obs.gap;
     const botH = H - botY;
     const botClosestX = Math.max(obs.x, Math.min(cx, obs.x + obs.w));
@@ -817,7 +806,6 @@
       flyer.vy += 0.33;
       flyer.y += flyer.vy;
 
-      // Particle Trail behind the bird
       if (frame % 3 === 0) {
         let trailColor = activeCharKey === 'parrot' ? '#22c55e' : (activeCharKey === 'eagle' ? '#fbbf24' : '#ef4444');
         createPuff(flyer.x - 12, flyer.y, trailColor, 2);
@@ -965,10 +953,8 @@
     renderLeaderboardContent();
   }
 
-  // Input Sanitization & Validation for Player Name
   document.getElementById('submitScoreBtn').addEventListener('click', async () => {
     let val = playerNameInput.value.trim().toUpperCase();
-    // Strip special characters / HTML tags, keep only A-Z and 0-9
     val = val.replace(/[^A-Z0-9]/g, '');
     playerNameInput.value = val;
 
@@ -990,7 +976,6 @@
     if (state === 'playing') flap(); 
   });
 
-  // Modal State Guard: Prevent space/arrow triggers when input fields or specific modals are active
   window.addEventListener('keydown', e => {
     if (document.activeElement === playerNameInput) return;
     if (!highscoreModal.classList.contains('hidden') || !leaderboardModal.classList.contains('hidden') || !howModal.classList.contains('hidden')) return;
