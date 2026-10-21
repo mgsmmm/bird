@@ -22,7 +22,7 @@
   :root {
     --accent-color: #10b981;
     --accent-glow: rgba(16, 185, 129, 0.4);
-    --panel-bg: rgba(15, 23, 42, 0.65);
+    --panel-bg: rgba(15, 23, 42, 0.75);
     --panel-border: rgba(255, 255, 255, 0.22);
   }
 
@@ -36,17 +36,17 @@
     justify-content: center;
     overflow-x: hidden;
     margin: 0;
-    padding: clamp(8px, 2vw, 24px);
+    padding: clamp(6px, 2vw, 16px);
     color: #ffffff;
   }
 
   .game-wrapper {
     width: 100%;
-    max-width: min(100%, 1200px);
+    max-width: min(100%, 1100px);
     margin: 0 auto;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
   }
 
   .glass-card {
@@ -86,20 +86,23 @@
   .canvas-container {
     position: relative;
     width: 100%;
-    aspect-ratio: 16 / 9;
-    max-height: 80vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
     overflow: hidden;
+    border-radius: clamp(12px, 2vw, 24px);
+    background: #000;
   }
 
   canvas {
     width: 100%;
-    height: 100%;
-    border-radius: clamp(12px, 2vw, 24px);
+    height: auto;
+    max-height: 75dvh;
+    object-fit: contain;
     touch-action: manipulation;
     display: block;
   }
 
-  /* Screen Shake Effect */
   @keyframes screenShake {
     0% { transform: translate(0, 0) rotate(0deg); }
     20% { transform: translate(-8px, 5px) rotate(-1deg); }
@@ -108,14 +111,11 @@
     80% { transform: translate(5px, 3px) rotate(0.5deg); }
     100% { transform: translate(0, 0) rotate(0deg); }
   }
-  .shake {
-    animation: screenShake 0.4s cubic-bezier(.36,.07,.19,.97) both;
-  }
+  .shake { animation: screenShake 0.4s cubic-bezier(.36,.07,.19,.97) both; }
 
   .custom-scroll::-webkit-scrollbar { width: 6px; }
   .custom-scroll::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); border-radius: 8px; }
   .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.25); border-radius: 8px; }
-  .custom-scroll::-webkit-scrollbar-thumb:hover { background: var(--accent-color); }
 
   @keyframes pulseGlow {
     0%, 100% { opacity: 0.85; transform: scale(1); }
@@ -135,9 +135,7 @@
   }
   .credit-anim { animation: creditGlow 3s infinite ease-in-out; }
 
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
+  @keyframes spin { to { transform: rotate(360deg); } }
   .spinner {
     width: 32px;
     height: 32px;
@@ -153,128 +151,128 @@
   <div class="game-wrapper">
 
     <!-- Header Stats Bar -->
-    <header class="glass-card rounded-2xl p-3 sm:p-4 flex flex-wrap items-center justify-between gap-3 w-full">
-      <div class="flex items-center gap-2.5 sm:gap-3">
-        <div id="worldBadgeIcon" class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center text-2xl sm:text-3xl bg-white/10 shadow-inner">🦜</div>
+    <header class="glass-card rounded-2xl p-2.5 sm:p-4 flex flex-wrap items-center justify-between gap-2.5 w-full">
+      <div class="flex items-center gap-2 sm:gap-3">
+        <div id="worldBadgeIcon" class="w-9 h-9 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center text-xl sm:text-3xl bg-white/10 shadow-inner">🦜</div>
         <div>
-          <h1 class="text-base sm:text-xl font-black tracking-tight flex items-center gap-2">
+          <h1 class="text-sm sm:text-xl font-black tracking-tight flex items-center gap-2">
             <span id="gameTitle">Parrot</span>
-            <span id="worldTitleBadge" class="text-[10px] sm:text-xs px-2 py-0.5 rounded-full bg-emerald-500/30 border border-emerald-400/50 font-bold text-emerald-200">Meadow World</span>
+            <span id="worldTitleBadge" class="text-[9px] sm:text-xs px-2 py-0.5 rounded-full bg-emerald-500/30 border border-emerald-400/50 font-bold text-emerald-200">Meadow World</span>
           </h1>
-          <p class="text-[10px] sm:text-xs text-white/70">Tap canvas or Space to flap! Collect worms for extra points.</p>
+          <p class="text-[9px] sm:text-xs text-white/70 hidden sm:block">Tap canvas or Space to flap! Collect worms for extra points.</p>
         </div>
       </div>
 
       <div class="flex items-center gap-3 sm:gap-6 ml-auto">
         <div class="text-right">
-          <div class="text-[9px] sm:text-[10px] uppercase font-extrabold tracking-wider text-white/50">Score</div>
-          <div class="text-xl sm:text-3xl font-black text-amber-300 flex items-center justify-end gap-1.5">
+          <div class="text-[8px] sm:text-[10px] uppercase font-extrabold tracking-wider text-white/50">Score</div>
+          <div class="text-lg sm:text-3xl font-black text-amber-300 flex items-center justify-end gap-1.5">
             <span id="scoreDisplay">0</span>
-            <span id="multiplierBadge" class="text-[10px] sm:text-xs bg-pink-500 text-white px-1.5 sm:px-2 py-0.5 rounded-full font-black hidden pulse-glow shadow-lg shadow-pink-500/50">+1</span>
+            <span id="multiplierBadge" class="text-[9px] sm:text-xs bg-pink-500 text-white px-1.5 sm:px-2 py-0.5 rounded-full font-black hidden pulse-glow shadow-lg shadow-pink-500/50">+1</span>
           </div>
         </div>
-        <div class="h-6 sm:h-8 w-[1px] bg-white/20"></div>
+        <div class="h-5 sm:h-8 w-[1px] bg-white/20"></div>
         <div class="text-right">
-          <div class="text-[9px] sm:text-[10px] uppercase font-extrabold tracking-wider text-white/50">World Best</div>
-          <div id="bestDisplay" class="text-lg sm:text-2xl font-black text-white">0</div>
+          <div class="text-[8px] sm:text-[10px] uppercase font-extrabold tracking-wider text-white/50">World Best</div>
+          <div id="bestDisplay" class="text-base sm:text-2xl font-black text-white">0</div>
         </div>
       </div>
     </header>
 
     <!-- Main Game Section -->
-    <div class="flex flex-col lg:flex-row gap-3 sm:gap-4 items-center justify-center w-full">
+    <div class="flex flex-col lg:flex-row gap-3 items-center justify-center w-full">
       
       <!-- Canvas Wrapper -->
-      <div id="canvasBox" class="canvas-container glass-card rounded-2xl sm:rounded-3xl shadow-2xl relative flex-1">
-        <canvas id="gameCanvas" width="960" height="540"></canvas>
+      <div id="canvasBox" class="canvas-container glass-card rounded-2xl sm:rounded-3xl shadow-2xl relative flex-1 w-full">
+        <canvas id="gameCanvas"></canvas>
 
         <!-- Start Overlay -->
-        <div id="startModal" class="absolute inset-0 glass-card bg-slate-950/70 flex items-center justify-center p-4 sm:p-6 transition-opacity duration-300">
-          <div class="max-w-md w-full bg-slate-900/90 border border-white/20 rounded-2xl sm:rounded-3xl p-5 sm:p-6 text-center backdrop-blur-xl shadow-2xl">
-            <div id="modalCharAvatar" class="text-4xl sm:text-6xl mb-1 sm:mb-2 float-worm inline-block">🦜</div>
-            <h2 id="modalWorldName" class="text-xl sm:text-2xl font-black text-white">Meadow World</h2>
-            <p class="text-[11px] sm:text-xs text-slate-300 mt-0.5 mb-4">Select a flyer! Click/tap canvas or press Space/Up Arrow to fly.</p>
+        <div id="startModal" class="absolute inset-0 glass-card bg-slate-950/80 flex items-center justify-center p-3 sm:p-6 transition-opacity duration-300">
+          <div class="max-w-md w-full bg-slate-900/95 border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 text-center backdrop-blur-xl shadow-2xl">
+            <div id="modalCharAvatar" class="text-4xl sm:text-6xl mb-1 float-worm inline-block">🦜</div>
+            <h2 id="modalWorldName" class="text-lg sm:text-2xl font-black text-white">Meadow World</h2>
+            <p class="text-[10px] sm:text-xs text-slate-300 mt-0.5 mb-3">Select a flyer! Tap canvas or press Space/Up Arrow to fly.</p>
             <div class="text-[10px] sm:text-xs font-bold text-white/70 mb-2 text-left uppercase tracking-wider">Choose Flyer & World:</div>
             
-            <div class="grid grid-cols-3 gap-2 mb-5">
-              <button onclick="switchCharacter('parrot')" id="btn-parrot" class="char-card active bg-white/10 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl flex flex-col items-center gap-1">
-                <span class="text-2xl sm:text-3xl">🦜</span><span class="text-[11px] sm:text-xs font-black">Parrot</span><span class="text-[9px] sm:text-[10px] text-emerald-300 font-bold">Meadow</span>
+            <div class="grid grid-cols-3 gap-2 mb-4">
+              <button onclick="switchCharacter('parrot')" id="btn-parrot" class="char-card active bg-white/10 p-2 sm:p-3 rounded-xl flex flex-col items-center gap-1">
+                <span class="text-2xl sm:text-3xl">🦜</span><span class="text-[10px] sm:text-xs font-black">Parrot</span><span class="text-[8px] sm:text-[10px] text-emerald-300 font-bold">Meadow</span>
               </button>
-              <button onclick="switchCharacter('eagle')" id="btn-eagle" class="char-card bg-white/10 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl flex flex-col items-center gap-1">
-                <span class="text-2xl sm:text-3xl">🦅</span><span class="text-[11px] sm:text-xs font-black">Eagle</span><span class="text-[9px] sm:text-[10px] text-purple-300 font-bold">Enchanted</span>
+              <button onclick="switchCharacter('eagle')" id="btn-eagle" class="char-card bg-white/10 p-2 sm:p-3 rounded-xl flex flex-col items-center gap-1">
+                <span class="text-2xl sm:text-3xl">🦅</span><span class="text-[10px] sm:text-xs font-black">Eagle</span><span class="text-[8px] sm:text-[10px] text-purple-300 font-bold">Enchanted</span>
               </button>
-              <button onclick="switchCharacter('red')" id="btn-red" class="char-card bg-white/10 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl flex flex-col items-center gap-1">
-                <span class="text-2xl sm:text-3xl">🔴</span><span class="text-[11px] sm:text-xs font-black">Red</span><span class="text-[9px] sm:text-[10px] text-cyan-300 font-bold">Cyber City</span>
+              <button onclick="switchCharacter('red')" id="btn-red" class="char-card bg-white/10 p-2 sm:p-3 rounded-xl flex flex-col items-center gap-1">
+                <span class="text-2xl sm:text-3xl">🔴</span><span class="text-[10px] sm:text-xs font-black">Red</span><span class="text-[8px] sm:text-[10px] text-cyan-300 font-bold">Cyber City</span>
               </button>
             </div>
 
-            <button id="startBtn" class="w-full py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-base sm:text-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-lg shadow-emerald-500/40 transition-all">
+            <button id="startBtn" class="w-full py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-sm sm:text-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-lg shadow-emerald-500/40 transition-all">
               START FLYING 🚀
             </button>
           </div>
         </div>
 
         <!-- Top 100 Name Input Modal -->
-        <div id="highscoreModal" class="absolute inset-0 glass-card bg-slate-950/85 flex items-center justify-center p-4 sm:p-6 hidden z-20">
-          <div class="max-w-md w-full bg-slate-900/95 border border-amber-400/50 rounded-2xl sm:rounded-3xl p-5 sm:p-6 text-center backdrop-blur-xl shadow-2xl">
-            <div class="text-4xl sm:text-5xl mb-1 sm:mb-2">🏆</div>
-            <h2 class="text-xl sm:text-2xl font-black text-amber-300">TOP 100 HIGH SCORE!</h2>
-            <p class="text-slate-300 text-[11px] sm:text-xs mt-0.5 mb-3">You made it onto the Leaderboard!</p>
-            <div class="bg-white/5 p-3 rounded-xl sm:rounded-2xl border border-white/10 mb-3">
-              <div class="text-[9px] sm:text-[10px] uppercase font-bold text-white/50">Your Score</div>
-              <div id="hsScoreDisplay" class="text-2xl sm:text-3xl font-black text-amber-300">0</div>
+        <div id="highscoreModal" class="absolute inset-0 glass-card bg-slate-950/90 flex items-center justify-center p-3 sm:p-6 hidden z-20">
+          <div class="max-w-md w-full bg-slate-900/95 border border-amber-400/50 rounded-2xl sm:rounded-3xl p-4 sm:p-6 text-center backdrop-blur-xl shadow-2xl">
+            <div class="text-3xl sm:text-5xl mb-1">🏆</div>
+            <h2 class="text-lg sm:text-2xl font-black text-amber-300">TOP 100 HIGH SCORE!</h2>
+            <p class="text-slate-300 text-[10px] sm:text-xs mt-0.5 mb-2">You made it onto the Leaderboard!</p>
+            <div class="bg-white/5 p-2.5 rounded-xl border border-white/10 mb-3">
+              <div class="text-[8px] sm:text-[10px] uppercase font-bold text-white/50">Your Score</div>
+              <div id="hsScoreDisplay" class="text-xl sm:text-3xl font-black text-amber-300">0</div>
             </div>
             <div class="text-left mb-3">
-              <label class="block text-[11px] sm:text-xs font-bold text-white/70 mb-1">Enter Flyer Name (3-6 characters):</label>
+              <label class="block text-[10px] sm:text-xs font-bold text-white/70 mb-1">Enter Flyer Name (3-6 characters):</label>
               <input id="playerNameInput" type="text" maxlength="6" placeholder="FLYER" 
-                     class="w-full px-3 py-2.5 sm:py-3 rounded-xl bg-slate-800 text-white font-black text-center text-base sm:text-lg tracking-wider border border-white/20 focus:border-amber-400 focus:outline-none uppercase">
-              <p id="nameInputError" class="text-red-400 text-[11px] font-bold mt-1 hidden text-center">Name must be 3-6 alphanumeric characters!</p>
+                     class="w-full px-3 py-2.5 rounded-xl bg-slate-800 text-white font-black text-center text-base sm:text-lg tracking-wider border border-white/20 focus:border-amber-400 focus:outline-none uppercase">
+              <p id="nameInputError" class="text-red-400 text-[10px] font-bold mt-1 hidden text-center">Name must be 3-6 alphanumeric characters!</p>
             </div>
-            <button id="submitScoreBtn" class="w-full py-3 sm:py-3.5 rounded-xl font-extrabold bg-amber-400 hover:bg-amber-300 text-slate-950 shadow-lg transition-all text-xs sm:text-sm">
+            <button id="submitScoreBtn" class="w-full py-3 rounded-xl font-extrabold bg-amber-400 hover:bg-amber-300 text-slate-950 shadow-lg transition-all text-xs sm:text-sm">
               Save Score & Play Again ↻
             </button>
           </div>
         </div>
 
         <!-- Game Over Modal -->
-        <div id="overModal" class="absolute inset-0 glass-card bg-slate-950/80 flex items-center justify-center p-4 sm:p-6 hidden">
-          <div class="max-w-md w-full bg-slate-900/95 border border-white/20 rounded-2xl sm:rounded-3xl p-5 sm:p-6 text-center backdrop-blur-xl shadow-2xl">
-            <div class="text-4xl sm:text-5xl mb-1 sm:mb-2">💥</div>
-            <h2 class="text-2xl sm:text-3xl font-black text-red-400">Bonk! Crash!</h2>
-            <p class="text-slate-300 text-[11px] sm:text-xs mt-0.5">You ran into an obstacle!</p>
-            <div class="grid grid-cols-3 gap-2 sm:gap-3 my-4 bg-white/5 p-3 rounded-xl sm:rounded-2xl border border-white/10">
-              <div><div class="text-[9px] sm:text-[10px] uppercase font-bold text-white/50">Score</div><div id="finalScore" class="text-xl sm:text-2xl font-black text-amber-300">0</div></div>
-              <div><div class="text-[9px] sm:text-[10px] uppercase font-bold text-white/50">World Best</div><div id="finalBest" class="text-xl sm:text-2xl font-black text-white">0</div></div>
-              <div><div class="text-[9px] sm:text-[10px] uppercase font-bold text-white/50">Worms</div><div id="finalWorms" class="text-xl sm:text-2xl font-black text-pink-400">0</div></div>
+        <div id="overModal" class="absolute inset-0 glass-card bg-slate-950/85 flex items-center justify-center p-3 sm:p-6 hidden">
+          <div class="max-w-md w-full bg-slate-900/95 border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 text-center backdrop-blur-xl shadow-2xl">
+            <div class="text-3xl sm:text-5xl mb-1">💥</div>
+            <h2 class="text-xl sm:text-3xl font-black text-red-400">Bonk! Crash!</h2>
+            <p class="text-slate-300 text-[10px] sm:text-xs mt-0.5">You ran into an obstacle!</p>
+            <div class="grid grid-cols-3 gap-2 my-3 bg-white/5 p-2.5 rounded-xl border border-white/10">
+              <div><div class="text-[8px] sm:text-[10px] uppercase font-bold text-white/50">Score</div><div id="finalScore" class="text-lg sm:text-2xl font-black text-amber-300">0</div></div>
+              <div><div class="text-[8px] sm:text-[10px] uppercase font-bold text-white/50">World Best</div><div id="finalBest" class="text-lg sm:text-2xl font-black text-white">0</div></div>
+              <div><div class="text-[8px] sm:text-[10px] uppercase font-bold text-white/50">Worms</div><div id="finalWorms" class="text-lg sm:text-2xl font-black text-pink-400">0</div></div>
             </div>
             <div class="flex gap-2">
-              <button id="againBtn" class="flex-1 py-3 rounded-xl font-extrabold bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-lg text-xs sm:text-sm">Fly Again ↻</button>
-              <button id="overLeaderboardBtn" class="py-3 px-3 sm:px-4 rounded-xl font-extrabold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-400/30 text-xs sm:text-sm">🏆 Top 100</button>
-              <button id="menuBtn" class="py-3 px-3 sm:px-4 rounded-xl font-extrabold bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs sm:text-sm">Menu</button>
+              <button id="againBtn" class="flex-1 py-2.5 sm:py-3 rounded-xl font-extrabold bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-lg text-xs sm:text-sm">Fly Again ↻</button>
+              <button id="overLeaderboardBtn" class="py-2.5 px-3 rounded-xl font-extrabold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-400/30 text-xs sm:text-sm">🏆 Top 100</button>
+              <button id="menuBtn" class="py-2.5 px-3 rounded-xl font-extrabold bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs sm:text-sm">Menu</button>
             </div>
           </div>
         </div>
 
         <!-- Leaderboard Modal -->
         <div id="leaderboardModal" class="absolute inset-0 glass-card bg-slate-950/90 flex items-center justify-center p-3 sm:p-6 hidden z-30">
-          <div class="max-w-lg w-full max-h-[92%] bg-slate-900/95 border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-5 flex flex-col backdrop-blur-xl shadow-2xl">
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="text-base sm:text-xl font-black text-amber-300 flex items-center gap-2"><span>🏆</span> Global Leaderboard (Top 100)</h3>
+          <div class="max-w-lg w-full max-h-[92%] bg-slate-900/95 border border-white/20 rounded-2xl sm:rounded-3xl p-3 sm:p-5 flex flex-col backdrop-blur-xl shadow-2xl">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="text-sm sm:text-xl font-black text-amber-300 flex items-center gap-2"><span>🏆</span> Global Leaderboard (Top 100)</h3>
               <button id="closeLeaderboardBtn" class="text-white/60 hover:text-white font-bold text-lg px-1.5">✕</button>
             </div>
-            <div class="flex gap-1.5 sm:gap-2 mb-3 bg-white/5 p-1 sm:p-1.5 rounded-xl">
-              <button onclick="setLeaderboardTab('parrot')" id="tab-parrot" class="flex-1 py-1.5 sm:py-2 rounded-lg text-[11px] sm:text-xs font-bold transition-all bg-emerald-500 text-slate-950">🦜 Meadow</button>
-              <button onclick="setLeaderboardTab('eagle')" id="tab-eagle" class="flex-1 py-1.5 sm:py-2 rounded-lg text-[11px] sm:text-xs font-bold transition-all text-white/70 hover:bg-white/10">🦅 Enchanted</button>
-              <button onclick="setLeaderboardTab('red')" id="tab-red" class="flex-1 py-1.5 sm:py-2 rounded-lg text-[11px] sm:text-xs font-bold transition-all text-white/70 hover:bg-white/10">🔴 Cyber</button>
+            <div class="flex gap-1.5 mb-2 bg-white/5 p-1 rounded-xl">
+              <button onclick="setLeaderboardTab('parrot')" id="tab-parrot" class="flex-1 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all bg-emerald-500 text-slate-950">🦜 Meadow</button>
+              <button onclick="setLeaderboardTab('eagle')" id="tab-eagle" class="flex-1 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all text-white/70 hover:bg-white/10">🦅 Enchanted</button>
+              <button onclick="setLeaderboardTab('red')" id="tab-red" class="flex-1 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all text-white/70 hover:bg-white/10">🔴 Cyber</button>
             </div>
-            <div id="top3Container" class="grid grid-cols-3 gap-2 mb-2 sm:mb-3"></div>
-            <div id="leaderboardLoading" class="flex flex-col items-center justify-center py-12 gap-3 hidden">
+            <div id="top3Container" class="grid grid-cols-3 gap-2 mb-2"></div>
+            <div id="leaderboardLoading" class="flex flex-col items-center justify-center py-10 gap-3 hidden">
               <div class="spinner"></div>
               <p class="text-xs text-white/60 font-bold">Loading leaderboard...</p>
             </div>
             <div class="flex-1 overflow-y-auto custom-scroll pr-1">
-              <table class="w-full text-left text-[11px] sm:text-xs">
-                <thead class="text-[9px] sm:text-[10px] uppercase font-extrabold text-white/40 sticky top-0 bg-slate-900/90 border-b border-white/10">
+              <table class="w-full text-left text-[10px] sm:text-xs">
+                <thead class="text-[8px] sm:text-[10px] uppercase font-extrabold text-white/40 sticky top-0 bg-slate-900/90 border-b border-white/10">
                   <tr><th class="py-1.5 pl-2">Rank</th><th class="py-1.5">Flyer</th><th class="py-1.5 text-right pr-2">Score</th></tr>
                 </thead>
                 <tbody id="leaderboardRows" class="divide-y divide-white/5"></tbody>
@@ -284,37 +282,34 @@
         </div>
 
         <!-- Rules Modal -->
-        <div id="howModal" class="absolute inset-0 glass-card bg-slate-950/85 flex items-center justify-center p-4 sm:p-6 hidden z-20">
-          <div class="max-w-md w-full bg-slate-900/95 border border-white/20 rounded-2xl sm:rounded-3xl p-5 sm:p-6 text-left backdrop-blur-xl shadow-2xl">
-            <h3 class="text-lg sm:text-xl font-black text-white mb-2 sm:mb-3 flex items-center gap-2"><span>🎮</span> How to Play</h3>
-            <ul class="space-y-2.5 text-xs sm:text-sm text-slate-200 mb-5">
-              <li class="flex items-start gap-2"><span class="text-emerald-400 font-bold">•</span><span><strong>Controls:</strong> Click/tap canvas or press <strong>SPACE / Up Arrow</strong> to flap.</span></li>
+        <div id="howModal" class="absolute inset-0 glass-card bg-slate-950/85 flex items-center justify-center p-3 sm:p-6 hidden z-20">
+          <div class="max-w-md w-full bg-slate-900/95 border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 text-left backdrop-blur-xl shadow-2xl">
+            <h3 class="text-base sm:text-xl font-black text-white mb-2 flex items-center gap-2"><span>🎮</span> How to Play</h3>
+            <ul class="space-y-2 text-xs sm:text-sm text-slate-200 mb-4">
+              <li class="flex items-start gap-2"><span class="text-emerald-400 font-bold">•</span><span><strong>Controls:</strong> Tap canvas or press <strong>SPACE</strong> to flap.</span></li>
               <li class="flex items-start gap-2"><span class="text-emerald-400 font-bold">•</span><span><strong>Pass Gaps:</strong> Pass obstacle pillars safely to earn <strong>+1 Point</strong>.</span></li>
-              <li class="flex items-start gap-2"><span class="text-pink-400 font-bold">•</span><span><strong>Worm Power-Up:</strong> Pink worms spawn every 2 passes. Collect them to get <strong>+1 EXTRA POINT</strong>!</span></li>
-              <li class="flex items-start gap-2"><span class="text-amber-300 font-bold">•</span><span><strong>Global Leaderboard:</strong> Synchronized online via Firebase Firestore with instant offline storage fallback!</span></li>
+              <li class="flex items-start gap-2"><span class="text-pink-400 font-bold">•</span><span><strong>Worm Power-Up:</strong> Collect pink worms for <strong>+1 EXTRA POINT</strong>!</span></li>
             </ul>
-            <button id="closeHowBtn" class="w-full py-2.5 sm:py-3 rounded-xl font-black bg-emerald-500 text-slate-950 hover:bg-emerald-400 transition-all text-xs sm:text-sm">Got it! Let's Fly</button>
+            <button id="closeHowBtn" class="w-full py-2.5 rounded-xl font-black bg-emerald-500 text-slate-950 hover:bg-emerald-400 transition-all text-xs sm:text-sm">Got it! Let's Fly</button>
           </div>
         </div>
       </div>
 
       <!-- Side Control Dock -->
-      <aside class="glass-card rounded-2xl sm:rounded-3xl p-3 sm:p-4 flex lg:flex-col items-center justify-between gap-2.5 sm:gap-3 w-full lg:w-48">
-        <button id="mainLeaderboardBtn" class="w-full py-2.5 sm:py-3 px-3 rounded-xl glass-btn text-[11px] sm:text-xs font-extrabold text-amber-300 flex items-center justify-center gap-2"><span>🏆</span> <span>Leaderboards</span></button>
-        <div class="w-full h-[1px] bg-white/10 hidden lg:block"></div>
-        <div class="flex lg:flex-col gap-2 w-full">
-          <button id="soundToggle" class="flex-1 py-2.5 sm:py-3 px-3 rounded-xl glass-btn text-[11px] sm:text-xs font-bold flex items-center justify-center gap-2"><span id="soundIcon">🔊</span> <span class="hidden sm:inline">Audio</span></button>
-          <button id="howToggle" class="flex-1 py-2.5 sm:py-3 px-3 rounded-xl glass-btn text-[11px] sm:text-xs font-bold flex items-center justify-center gap-2"><span>❓</span> <span class="hidden sm:inline">Rules</span></button>
+      <aside class="glass-card rounded-2xl sm:rounded-3xl p-2.5 sm:p-4 flex flex-row lg:flex-col items-center justify-between gap-2 w-full lg:w-44">
+        <button id="mainLeaderboardBtn" class="flex-1 lg:w-full py-2.5 px-3 rounded-xl glass-btn text-[10px] sm:text-xs font-extrabold text-amber-300 flex items-center justify-center gap-1.5"><span>🏆</span> <span>Leaderboard</span></button>
+        <div class="w-[1px] lg:w-full h-6 lg:h-[1px] bg-white/10"></div>
+        <div class="flex flex-row lg:flex-col gap-2 flex-1 lg:w-full">
+          <button id="soundToggle" class="flex-1 py-2.5 px-2 rounded-xl glass-btn text-[10px] sm:text-xs font-bold flex items-center justify-center gap-1.5"><span id="soundIcon">🔊</span> <span>Audio</span></button>
+          <button id="howToggle" class="flex-1 py-2.5 px-2 rounded-xl glass-btn text-[10px] sm:text-xs font-bold flex items-center justify-center gap-1.5"><span>❓</span> <span>Rules</span></button>
         </div>
-        
-        <div class="w-full flex flex-col gap-2">
-          <div class="w-full bg-black/30 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border border-white/10 text-center">
-            <div class="text-[9px] sm:text-[10px] uppercase font-bold text-white/50">Active World</div>
-            <div id="sideWorldName" class="text-[11px] sm:text-xs font-black text-emerald-300 mt-0.5">Meadow World</div>
+        <div class="hidden lg:flex w-full flex-col gap-1.5">
+          <div class="w-full bg-black/30 p-2.5 rounded-xl border border-white/10 text-center">
+            <div class="text-[9px] uppercase font-bold text-white/50">Active World</div>
+            <div id="sideWorldName" class="text-[11px] font-black text-emerald-300 mt-0.5">Meadow World</div>
           </div>
-          <!-- Animated Credit to Mark (hennessy) -->
           <div class="text-center">
-            <span class="text-[10px] sm:text-xs font-extrabold tracking-wider text-emerald-400 credit-anim block">By Mark (hennessy)</span>
+            <span class="text-[10px] font-extrabold tracking-wider text-emerald-400 credit-anim block">By Mark (hennessy)</span>
           </div>
         </div>
       </aside>
@@ -335,26 +330,25 @@
 
   let db = null;
   try {
-    if (!firebase.apps.length) {
-      firebase.initializeApp(firebaseConfig);
-    }
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     db = firebase.firestore();
-  } catch (err) {
-    console.warn("Firebase init warning. Using local fallback.", err);
-  }
+  } catch (err) {}
 
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
-  const W = 960;
-  const H = 540;
+  
+  // Dynamic Device Resolution Detection (Adapts to Mobile and Desktop viewports cleanly)
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
+  const W = isMobile ? 540 : 960;
+  const H = isMobile ? 960 : 540; // Portrait mode for mobile, Landscape for desktop!
 
-  function setupCanvasDPI() {
+  function setupCanvasResolution() {
     const dpr = window.devicePixelRatio || 1;
     canvas.width = W * dpr;
     canvas.height = H * dpr;
     ctx.scale(dpr, dpr);
   }
-  setupCanvasDPI();
+  setupCanvasResolution();
 
   const scoreDisplay = document.getElementById('scoreDisplay');
   const bestDisplay = document.getElementById('bestDisplay');
@@ -410,7 +404,6 @@
     return list;
   }
 
-  // Safe fetch with built-in fallback to avoid freezing when indexes are missing
   async function fetchLeaderboards() {
     for (const key of ['parrot', 'eagle', 'red']) {
       try {
@@ -426,7 +419,6 @@
           leaderboardCache[key] = localData ? JSON.parse(localData) : getLocalFallbackLeaderboard();
         }
       } catch (e) {
-        console.warn(`Firestore index or network query notice for ${key}. Falling back to local storage cache.`, e);
         try {
           const localData = localStorage.getItem(getLocalStorageKey(key));
           leaderboardCache[key] = localData ? JSON.parse(localData) : getLocalFallbackLeaderboard();
@@ -463,9 +455,7 @@
       try {
         const scoreId = `${playerName}_${Date.now()}`;
         await db.collection('leaderboards').doc(worldKey).collection('scores').doc(scoreId).set(newEntry);
-      } catch (e) {
-        console.error("Cloud write notice:", e);
-      }
+      } catch (e) {}
     }
   }
 
@@ -482,9 +472,7 @@
       const AC = window.AudioContext || window.webkitAudioContext;
       if (AC) audioCtx = new AC();
     }
-    if (audioCtx && audioCtx.state === 'suspended') {
-      audioCtx.resume();
-    }
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
   }
 
   function playSound(type) {
@@ -532,7 +520,7 @@
     } catch (e) {}
   }
 
-  let flyer = { x: 180, y: 240, vy: 0, radiusX: 18, radiusY: 13, rotation: 0 };
+  let flyer = { x: W * 0.25, y: H * 0.45, vy: 0, radiusX: 18, radiusY: 13, rotation: 0 };
   let obstacles = [], worms = [], particles = [], floatTexts = [];
   let frame = 0, speed = 3.5, spawnTimer = 0, bgStars = [];
 
@@ -548,7 +536,7 @@
     gameTitle.textContent = c.title;
     worldTitleBadge.textContent = c.worldName;
     worldBadgeIcon.textContent = c.badgeIcon;
-    sideWorldName.textContent = c.worldName;
+    if (sideWorldName) sideWorldName.textContent = c.worldName;
     modalWorldName.textContent = c.worldName;
     modalCharAvatar.textContent = c.badgeIcon;
 
@@ -568,10 +556,10 @@
     gapPassCount = 0;
     wormsEaten = 0;
     frame = 0;
-    speed = 3.5;
+    speed = isMobile ? 3.8 : 3.5;
     spawnTimer = 0;
 
-    flyer = { x: 180, y: 240, vy: 0, radiusX: 18, radiusY: 13, rotation: 0 };
+    flyer = { x: W * 0.25, y: H * 0.45, vy: 0, radiusX: 18, radiusY: 13, rotation: 0 };
     obstacles = [];
     worms = [];
     particles = [];
@@ -603,7 +591,7 @@
   function flap() {
     if (state === 'playing') {
       initAudioContext();
-      flyer.vy = -6.8;
+      flyer.vy = isMobile ? -7.2 : -6.8;
       playSound('flap');
       createPuff(flyer.x - 10, flyer.y + 6, '#ffffff', 5);
     }
@@ -658,19 +646,10 @@
 
     if (activeCharKey === 'parrot') {
       ctx.fillStyle = '#fef08a';
-      ctx.beginPath(); ctx.arc(820, 85, 45, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-      for (let i = 0; i < 3; i++) {
-        const cx = (frame * 0.3 + i * 280) % (W + 200) - 100;
-        ctx.beginPath();
-        ctx.arc(cx, 100 + i * 20, 24, 0, Math.PI * 2);
-        ctx.arc(cx + 20, 90 + i * 20, 30, 0, Math.PI * 2);
-        ctx.arc(cx + 45, 100 + i * 20, 20, 0, Math.PI * 2);
-        ctx.fill();
-      }
+      ctx.beginPath(); ctx.arc(W * 0.85, H * 0.15, 45, 0, Math.PI * 2); ctx.fill();
     } else if (activeCharKey === 'eagle') {
       ctx.fillStyle = '#fef3c7';
-      ctx.beginPath(); ctx.arc(780, 95, 42, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(W * 0.8, H * 0.18, 42, 0, Math.PI * 2); ctx.fill();
       bgStars.forEach(s => {
         ctx.fillStyle = `rgba(255, 255, 255, ${0.3 + Math.sin(frame * 0.05 + s.x) * 0.5})`;
         ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
@@ -686,7 +665,7 @@
     ctx.fillStyle = c.hillsColor;
     ctx.beginPath(); ctx.moveTo(0, H);
     for (let x = 0; x <= W; x += 40) {
-      ctx.lineTo(x, 425 + Math.sin(x * 0.015 + frame * 0.002) * 18);
+      ctx.lineTo(x, (H - 40) + Math.sin(x * 0.015 + frame * 0.002) * 18);
     }
     ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
     ctx.fillStyle = c.groundColor;
@@ -766,9 +745,9 @@
   }
 
   function spawnObstacle() {
-    const gap = 155;
+    const gap = isMobile ? 175 : 155;
     const topH = 60 + Math.random() * (H - gap - 120);
-    const x = W + 40, w = 75;
+    const x = W + 40, w = isMobile ? 65 : 75;
     obstacles.push({ x, w, topH, gap, passed: false });
     gapPassCount++;
     if (gapPassCount % 2 === 0) {
@@ -777,24 +756,15 @@
   }
 
   function checkCollision(obs) {
-    const cx = flyer.x;
-    const cy = flyer.y;
-    const rx = flyer.radiusX;
-    const ry = flyer.radiusY;
-
+    const cx = flyer.x, cy = flyer.y, rx = flyer.radiusX, ry = flyer.radiusY;
     const topClosestX = Math.max(obs.x, Math.min(cx, obs.x + obs.w));
     const topClosestY = Math.max(0, Math.min(cy, obs.topH));
-    const topDx = (cx - topClosestX) / rx;
-    const topDy = (cy - topClosestY) / ry;
-    if ((topDx * topDx + topDy * topDy) <= 1) return true;
+    if (((cx - topClosestX) / rx) ** 2 + ((cy - topClosestY) / ry) ** 2 <= 1) return true;
 
-    const botY = obs.topH + obs.gap;
-    const botH = H - botY;
+    const botY = obs.topH + obs.gap, botH = H - botY;
     const botClosestX = Math.max(obs.x, Math.min(cx, obs.x + obs.w));
     const botClosestY = Math.max(botY, Math.min(cy, botY + botH));
-    const botDx = (cx - botClosestX) / rx;
-    const botDy = (cy - botClosestY) / ry;
-    if ((botDx * botDx + botDy * botDy) <= 1) return true;
+    if (((cx - botClosestX) / rx) ** 2 + ((cy - botClosestY) / ry) ** 2 <= 1) return true;
 
     return false;
   }
@@ -802,7 +772,7 @@
   function update() {
     frame++;
     if (state === 'playing') {
-      speed = Math.min(5.5, 3.5 + score * 0.012);
+      speed = Math.min(5.8, (isMobile ? 3.8 : 3.5) + score * 0.012);
       flyer.vy += 0.33;
       flyer.y += flyer.vy;
 
@@ -825,9 +795,7 @@
           scoreDisplay.textContent = score;
           addFloatText(flyer.x, flyer.y - 20, '+1', '#6ee7b7');
         }
-        if (checkCollision(o)) {
-          endGame();
-        }
+        if (checkCollision(o)) endGame();
       });
 
       worms.forEach(w => {
@@ -849,7 +817,7 @@
       worms = worms.filter(w => w.x > -40 && !w.taken);
       if (flyer.y < 0 || flyer.y > H - 30) endGame();
     } else if (state === 'menu') {
-      flyer.y = 240 + Math.sin(frame * 0.05) * 12;
+      flyer.y = (H * 0.45) + Math.sin(frame * 0.05) * 12;
       flyer.vy = 0;
     }
 
@@ -868,8 +836,8 @@
       });
       worms.forEach(drawWorm);
     } else {
-      drawObstacle(680, 0, 75, 160, true);
-      drawObstacle(740, 340, 75, 200, false);
+      drawObstacle(W * 0.7, 0, 75, H * 0.3, true);
+      drawObstacle(W * 0.78, H * 0.65, 75, H * 0.35, false);
     }
 
     particles.forEach(p => {
@@ -901,9 +869,9 @@
     ['parrot', 'eagle', 'red'].forEach(k => {
       const btn = document.getElementById(`tab-${k}`);
       if (k === tabKey) {
-        btn.className = 'flex-1 py-1.5 sm:py-2 rounded-lg text-[11px] sm:text-xs font-bold transition-all bg-emerald-500 text-slate-950 shadow';
+        btn.className = 'flex-1 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all bg-emerald-500 text-slate-950 shadow';
       } else {
-        btn.className = 'flex-1 py-1.5 sm:py-2 rounded-lg text-[11px] sm:text-xs font-bold transition-all text-white/70 hover:bg-white/10';
+        btn.className = 'flex-1 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all text-white/70 hover:bg-white/10';
       }
     });
     renderLeaderboardContent();
@@ -922,10 +890,10 @@
     for (let i = 0; i < 3; i++) {
       const item = list[i] || { name: '---', score: 0 };
       top3Container.innerHTML += `
-        <div class="border ${colors[i]} rounded-xl sm:rounded-2xl p-2 text-center flex flex-col justify-center">
-          <div class="text-[9px] sm:text-[10px] font-black uppercase tracking-wider">${medals[i]}</div>
-          <div class="text-xs sm:text-sm font-black truncate my-0.5">${item.name}</div>
-          <div class="text-base sm:text-lg font-black">${item.score}</div>
+        <div class="border ${colors[i]} rounded-xl p-2 text-center flex flex-col justify-center">
+          <div class="text-[8px] sm:text-[10px] font-black uppercase tracking-wider">${medals[i]}</div>
+          <div class="text-[11px] sm:text-sm font-black truncate my-0.5">${item.name}</div>
+          <div class="text-sm sm:text-lg font-black">${item.score}</div>
         </div>
       `;
     }
@@ -947,15 +915,13 @@
     leaderboardLoading.classList.remove('hidden');
     leaderboardModal.classList.remove('hidden');
     setLeaderboardTab(worldKey);
-    
     await fetchLeaderboards();
     leaderboardLoading.classList.add('hidden');
     renderLeaderboardContent();
   }
 
   document.getElementById('submitScoreBtn').addEventListener('click', async () => {
-    let val = playerNameInput.value.trim().toUpperCase();
-    val = val.replace(/[^A-Z0-9]/g, '');
+    let val = playerNameInput.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
     playerNameInput.value = val;
 
     if (val.length < 3 || val.length > 6) {
@@ -983,8 +949,8 @@
     if (e.code === 'Space' || e.code === 'ArrowUp') {
       e.preventDefault();
       if (state === 'playing') flap();
-      else if (state === 'menu' && startModal.classList.contains('hidden') === false) startGame();
-      else if (state === 'over' && overModal.classList.contains('hidden') === false) startGame();
+      else if (state === 'menu' && !startModal.classList.contains('hidden')) startGame();
+      else if (state === 'over' && !overModal.classList.contains('hidden')) startGame();
     }
   });
 
@@ -1010,9 +976,7 @@
   document.getElementById('closeHowBtn').addEventListener('click', () => howModal.classList.add('hidden'));
 
   switchCharacter('parrot');
-  fetchLeaderboards().then(() => {
-    resetGame();
-  });
+  fetchLeaderboards().then(() => resetGame());
   loop();
 })();
 </script>
