@@ -1,260 +1,6 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#10b981">
-<title>Feathered Flyers — Multi-World Flight & Leaderboard</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<!-- Firebase App & Firestore CDN SDK -->
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800;900&display=swap');
-
-  * { box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; user-select: none; }
-
-  :root {
-    --accent-color: #10b981;
-    --accent-glow: rgba(16, 185, 129, 0.4);
-    --panel-bg: rgba(15, 23, 42, 0.55);
-    --panel-border: rgba(255, 255, 255, 0.22);
-  }
-
-  body {
-    background: #090d16;
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
-
-  .glass-card {
-    background: var(--panel-bg);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid var(--panel-border);
-    box-shadow: 0 12px 32px 0 rgba(0, 0, 0, 0.35);
-  }
-
-  .glass-btn {
-    background: rgba(255, 255, 255, 0.12);
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    backdrop-filter: blur(10px);
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-  .glass-btn:hover {
-    background: rgba(255, 255, 255, 0.25);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px var(--accent-glow);
-  }
-  .glass-btn:active {
-    transform: translateY(1px);
-  }
-
-  .char-card {
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    border: 2px solid transparent;
-  }
-  .char-card.active {
-    border-color: var(--accent-color);
-    box-shadow: 0 0 25px var(--accent-glow);
-    transform: scale(1.04);
-    background: rgba(255, 255, 255, 0.22);
-  }
-
-  .canvas-container {
-    position: relative;
-    width: 100%;
-    max-width: 1000px;
-    aspect-ratio: 16 / 9;
-  }
-
-  canvas {
-    width: 100%;
-    height: 100%;
-    border-radius: 24px;
-    touch-action: manipulation;
-  }
-
-  .custom-scroll::-webkit-scrollbar { width: 6px; }
-  .custom-scroll::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); border-radius: 8px; }
-  .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.25); border-radius: 8px; }
-  .custom-scroll::-webkit-scrollbar-thumb:hover { background: var(--accent-color); }
-
-  @keyframes pulseGlow {
-    0%, 100% { opacity: 0.85; transform: scale(1); }
-    50% { opacity: 1; transform: scale(1.12); }
-  }
-  .pulse-glow { animation: pulseGlow 1.5s infinite ease-in-out; }
-
-  @keyframes floatWorm {
-    0%, 100% { transform: translateY(0px) rotate(-4deg); }
-    50% { transform: translateY(-7px) rotate(4deg); }
-  }
-  .float-worm { animation: floatWorm 2s infinite ease-in-out; }
-</style>
-</head>
-<body class="flex flex-col items-center justify-center p-3 sm:p-6 text-white min-h-screen">
-
-  <div class="w-full max-w-[1080px] flex flex-col gap-4">
-
-    <!-- Header -->
-    <header class="glass-card rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 w-full">
-      <div class="flex items-center gap-3">
-        <div id="worldBadgeIcon" class="w-12 h-12 rounded-xl flex items-center justify-center text-3xl bg-white/10 shadow-inner">🦜</div>
-        <div>
-          <h1 class="text-xl font-black tracking-tight flex items-center gap-2">
-            <span id="gameTitle">Parrot</span>
-            <span id="worldTitleBadge" class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/30 border border-emerald-400/50 font-bold text-emerald-200">Meadow World</span>
-          </h1>
-          <p class="text-xs text-white/70">Tap canvas or Space to flap! Collect worms for extra points.</p>
-        </div>
-      </div>
-
-      <div class="flex items-center gap-4 sm:gap-6 ml-auto">
-        <div class="text-right">
-          <div class="text-[10px] uppercase font-extrabold tracking-wider text-white/50">Score</div>
-          <div class="text-2xl sm:text-3xl font-black text-amber-300 flex items-center justify-end gap-1.5">
-            <span id="scoreDisplay">0</span>
-            <span id="multiplierBadge" class="text-xs bg-pink-500 text-white px-2 py-0.5 rounded-full font-black hidden pulse-glow shadow-lg shadow-pink-500/50">+1</span>
-          </div>
-        </div>
-        <div class="h-8 w-[1px] bg-white/20"></div>
-        <div class="text-right">
-          <div class="text-[10px] uppercase font-extrabold tracking-wider text-white/50">World Best</div>
-          <div id="bestDisplay" class="text-xl sm:text-2xl font-black text-white">0</div>
-        </div>
-      </div>
-    </header>
-
-    <!-- Main Game & Controls -->
-    <div class="flex flex-col lg:flex-row gap-4 items-center justify-center w-full">
-      <div class="canvas-container glass-card rounded-3xl overflow-hidden shadow-2xl relative flex-1">
-        <canvas id="gameCanvas" width="960" height="540"></canvas>
-
-        <!-- Start Modal -->
-        <div id="startModal" class="absolute inset-0 glass-card bg-slate-950/70 flex items-center justify-center p-6 transition-opacity duration-300">
-          <div class="max-w-md w-full bg-slate-900/90 border border-white/20 rounded-3xl p-6 text-center backdrop-blur-xl shadow-2xl">
-            <div id="modalCharAvatar" class="text-6xl mb-2 float-worm inline-block">🦜</div>
-            <h2 id="modalWorldName" class="text-2xl font-black text-white">Meadow World</h2>
-            <p class="text-xs text-slate-300 mt-1 mb-5">Select a flyer! Click/tap canvas or press Space/Up Arrow to fly.</p>
-            <div class="text-xs font-bold text-white/70 mb-2 text-left uppercase tracking-wider">Choose Flyer & World:</div>
-            
-            <div class="grid grid-cols-3 gap-2.5 mb-6">
-              <button onclick="switchCharacter('parrot')" id="btn-parrot" class="char-card active bg-white/10 p-3 rounded-2xl flex flex-col items-center gap-1.5">
-                <span class="text-3xl">🦜</span><span class="text-xs font-black">Parrot</span><span class="text-[10px] text-emerald-300 font-bold">Meadow</span>
-              </button>
-              <button onclick="switchCharacter('eagle')" id="btn-eagle" class="char-card bg-white/10 p-3 rounded-2xl flex flex-col items-center gap-1.5">
-                <span class="text-3xl">🦅</span><span class="text-xs font-black">Eagle</span><span class="text-[10px] text-purple-300 font-bold">Enchanted</span>
-              </button>
-              <button onclick="switchCharacter('red')" id="btn-red" class="char-card bg-white/10 p-3 rounded-2xl flex flex-col items-center gap-1.5">
-                <span class="text-3xl">🔴</span><span class="text-xs font-black">Red</span><span class="text-[10px] text-cyan-300 font-bold">Cyber City</span>
-              </button>
-            </div>
-
-            <button id="startBtn" class="w-full py-4 rounded-2xl font-black text-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-lg shadow-emerald-500/40 transition-all">
-              START FLYING 🚀
-            </button>
-          </div>
-        </div>
-
-        <!-- Highscore Modal -->
-        <div id="highscoreModal" class="absolute inset-0 glass-card bg-slate-950/85 flex items-center justify-center p-6 hidden z-20">
-          <div class="max-w-md w-full bg-slate-900/95 border border-amber-400/50 rounded-3xl p-6 text-center backdrop-blur-xl shadow-2xl">
-            <div class="text-5xl mb-2">🏆</div>
-            <h2 class="text-2xl font-black text-amber-300">TOP 100 HIGH SCORE!</h2>
-            <p class="text-slate-300 text-xs mt-1 mb-4">You made it onto the Global Cloud Leaderboard!</p>
-            <div class="bg-white/5 p-4 rounded-2xl border border-white/10 mb-4">
-              <div class="text-[10px] uppercase font-bold text-white/50">Your Score</div>
-              <div id="hsScoreDisplay" class="text-3xl font-black text-amber-300">0</div>
-            </div>
-            <div class="text-left mb-4">
-              <label class="block text-xs font-bold text-white/70 mb-1">Enter Flyer Name (3-6 characters):</label>
-              <input id="playerNameInput" type="text" maxlength="6" placeholder="FLYER" 
-                     class="w-full px-4 py-3 rounded-xl bg-slate-800 text-white font-black text-center text-lg tracking-wider border border-white/20 focus:border-amber-400 focus:outline-none uppercase">
-              <p id="nameInputError" class="text-red-400 text-xs font-bold mt-1.5 hidden text-center">Name must be between 3 and 6 characters long!</p>
-            </div>
-            <button id="submitScoreBtn" class="w-full py-3.5 rounded-xl font-extrabold bg-amber-400 hover:bg-amber-300 text-slate-950 shadow-lg transition-all">
-              Save Score & View Leaderboard 🏆
-            </button>
-          </div>
-        </div>
-
-        <!-- Game Over Modal -->
-        <div id="overModal" class="absolute inset-0 glass-card bg-slate-950/80 flex items-center justify-center p-6 hidden">
-          <div class="max-w-md w-full bg-slate-900/95 border border-white/20 rounded-3xl p-6 text-center backdrop-blur-xl shadow-2xl">
-            <div class="text-5xl mb-2">💥</div>
-            <h2 class="text-3xl font-black text-red-400">Bonk! Crash!</h2>
-            <p class="text-slate-300 text-xs mt-1">You ran into an obstacle!</p>
-            <div class="grid grid-cols-3 gap-3 my-5 bg-white/5 p-4 rounded-2xl border border-white/10">
-              <div><div class="text-[10px] uppercase font-bold text-white/50">Score</div><div id="finalScore" class="text-2xl font-black text-amber-300">0</div></div>
-              <div><div class="text-[10px] uppercase font-bold text-white/50">World Best</div><div id="finalBest" class="text-2xl font-black text-white">0</div></div>
-              <div><div class="text-[10px] uppercase font-bold text-white/50">Worms</div><div id="finalWorms" class="text-2xl font-black text-pink-400">0</div></div>
-            </div>
-            <div class="flex gap-2">
-              <button id="againBtn" class="flex-1 py-3.5 rounded-xl font-extrabold bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-lg text-sm">Fly Again ↻</button>
-              <button id="overLeaderboardBtn" class="py-3.5 px-4 rounded-xl font-extrabold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-400/30 text-sm">🏆 Top 100</button>
-              <button id="menuBtn" class="py-3.5 px-4 rounded-xl font-extrabold bg-white/10 hover:bg-white/20 text-white border border-white/20 text-sm">Menu</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Leaderboard Modal -->
-        <div id="leaderboardModal" class="absolute inset-0 glass-card bg-slate-950/90 flex items-center justify-center p-4 sm:p-6 hidden z-30">
-          <div class="max-w-lg w-full max-h-[92%] bg-slate-900/95 border border-white/20 rounded-3xl p-5 flex flex-col backdrop-blur-xl shadow-2xl">
-            <div class="flex items-center justify-between mb-4">
-              <h3 class="text-xl font-black text-amber-300 flex items-center gap-2"><span>🏆</span> Global Cloud Leaderboard (Top 100)</h3>
-              <button id="closeLeaderboardBtn" class="text-white/60 hover:text-white font-bold text-lg px-2">✕</button>
-            </div>
-            <div class="flex gap-2 mb-3 bg-white/5 p-1.5 rounded-xl">
-              <button onclick="setLeaderboardTab('parrot')" id="tab-parrot" class="flex-1 py-2 rounded-lg text-xs font-bold transition-all bg-emerald-500 text-slate-950">🦜 Meadow</button>
-              <button onclick="setLeaderboardTab('eagle')" id="tab-eagle" class="flex-1 py-2 rounded-lg text-xs font-bold transition-all text-white/70 hover:bg-white/10">🦅 Enchanted</button>
-              <button onclick="setLeaderboardTab('red')" id="tab-red" class="flex-1 py-2 rounded-lg text-xs font-bold transition-all text-white/70 hover:bg-white/10">🔴 Cyber</button>
-            </div>
-            <div id="top3Container" class="grid grid-cols-3 gap-2 mb-3"></div>
-            <div class="flex-1 overflow-y-auto custom-scroll pr-1">
-              <table class="w-full text-left text-xs">
-                <thead class="text-[10px] uppercase font-extrabold text-white/40 sticky top-0 bg-slate-900/90 border-b border-white/10">
-                  <tr><th class="py-2 pl-2">Rank</th><th class="py-2">Flyer</th><th class="py-2 text-right pr-2">Score</th></tr>
-                </thead>
-                <tbody id="leaderboardRows" class="divide-y divide-white/5"></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <!-- Rules Modal -->
-        <div id="howModal" class="absolute inset-0 glass-card bg-slate-950/85 flex items-center justify-center p-6 hidden z-20">
-          <div class="max-w-md w-full bg-slate-900/95 border border-white/20 rounded-3xl p-6 text-left backdrop-blur-xl shadow-2xl">
-            <h3 class="text-xl font-black text-white mb-3 flex items-center gap-2"><span>🎮</span> How to Play</h3>
-            <ul class="space-y-3 text-sm text-slate-200 mb-6">
-              <li class="flex items-start gap-2"><span class="text-emerald-400 font-bold">•</span><span><strong>Controls:</strong> Click/tap canvas or press <strong>SPACE / Up Arrow</strong> to flap.</span></li>
-              <li class="flex items-start gap-2"><span class="text-emerald-400 font-bold">•</span><span><strong>Pass Gaps:</strong> Pass obstacle pillars safely to earn <strong>+1 Point</strong>.</span></li>
-              <li class="flex items-start gap-2"><span class="text-pink-400 font-bold">•</span><span><strong>Worm Power-Up:</strong> Pink worms spawn every 2 passes. Collect them to get <strong>+1 EXTRA POINT</strong>!</span></li>
-              <li class="flex items-start gap-2"><span class="text-amber-300 font-bold">•</span><span><strong>Global Leaderboard:</strong> Scores are synchronized live across all devices worldwide via Firebase cloud!</span></li>
-            </ul>
-            <button id="closeHowBtn" class="w-full py-3 rounded-xl font-black bg-emerald-500 text-slate-950 hover:bg-emerald-400 transition-all">Got it! Let's Fly</button>
-          </div>
-        </div>
-      </div>
-
-      <aside class="glass-card rounded-3xl p-4 flex lg:flex-col items-center justify-between gap-3 w-full lg:w-48">
-        <button id="mainLeaderboardBtn" class="w-full py-3 px-3 rounded-xl glass-btn text-xs font-extrabold text-amber-300 flex items-center justify-center gap-2"><span>🏆</span> <span>Leaderboards</span></button>
-        <div class="w-full h-[1px] bg-white/10 hidden lg:block"></div>
-        <div class="flex lg:flex-col gap-2 w-full">
-          <button id="soundToggle" class="flex-1 py-3 px-3 rounded-xl glass-btn text-xs font-bold flex items-center justify-center gap-2"><span id="soundIcon">🔊</span> <span class="hidden sm:inline">Audio</span></button>
-          <button id="howToggle" class="flex-1 py-3 px-3 rounded-xl glass-btn text-xs font-bold flex items-center justify-center gap-2"><span>❓</span> <span class="hidden sm:inline">Rules</span></button>
-        </div>
-        <div class="hidden lg:block w-full bg-black/30 p-3 rounded-2xl border border-white/10 text-center">
-          <div class="text-[10px] uppercase font-bold text-white/50">Active World</div>
-          <div id="sideWorldName" class="text-xs font-black text-emerald-300 mt-0.5">Meadow World</div>
-        </div>
-      </aside>
-    </div>
-  </div>
-
 <script>
 (() => {
-  // YOUR FIREBASE CONFIGURATION KEYS PRE-PLUGGED
+  // Firebase Configuration
   const firebaseConfig = {
     apiKey: "AIzaSyDFx15qAqYZfwAYt-BdWsuZwcfK2Soxofs",
     authDomain: "hennessy-f5cdb.firebaseapp.com",
@@ -265,14 +11,71 @@
     measurementId: "G-8HXF9HQHYH"
   };
 
-  // Initialize Firebase
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.firestore();
+  let db = null;
+  try {
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+  } catch (err) {}
 
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
-  const W = canvas.width;
-  const H = canvas.height;
+  const canvasBox = document.getElementById('canvasBox');
+
+  // Dynamic Virtual Resolution & Orientation State
+  let V_WIDTH = 960;
+  let V_HEIGHT = 540;
+  let isPortrait = false;
+
+  // Physics Scaling factors dynamically configured per mode
+  let gravity = 0.33;
+  let flapJump = -6.8;
+  let baseSpeed = 3.5;
+  let gapHeight = 155;
+
+  function updateResolutionAndPhysics() {
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+    const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || windowWidth < 768;
+
+    isPortrait = isMobileDevice && (windowHeight > windowWidth);
+
+    if (isPortrait) {
+      V_WIDTH = 540;
+      V_HEIGHT = 960;
+      canvasBox.style.aspectRatio = "9 / 16";
+      canvasBox.style.maxHeight = "72vh";
+      
+      gravity = 0.42;
+      flapJump = -8.5;
+      baseSpeed = 3.2;
+      gapHeight = 220;
+    } else {
+      V_WIDTH = 960;
+      V_HEIGHT = 540;
+      canvasBox.style.aspectRatio = "16 / 9";
+      canvasBox.style.maxHeight = "80vh";
+
+      gravity = 0.33;
+      flapJump = -6.8;
+      baseSpeed = 3.5;
+      gapHeight = 155;
+    }
+
+    setupCanvasDPI();
+  }
+
+  function setupCanvasDPI() {
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = V_WIDTH * dpr;
+    canvas.height = V_HEIGHT * dpr;
+    ctx.resetTransform();
+    ctx.scale(dpr, dpr);
+  }
+
+  window.addEventListener('resize', () => {
+    updateResolutionAndPhysics();
+    if (state === 'menu') resetGame();
+  });
 
   const scoreDisplay = document.getElementById('scoreDisplay');
   const bestDisplay = document.getElementById('bestDisplay');
@@ -298,6 +101,7 @@
   const hsScoreDisplay = document.getElementById('hsScoreDisplay');
   const playerNameInput = document.getElementById('playerNameInput');
   const nameInputError = document.getElementById('nameInputError');
+  const leaderboardLoading = document.getElementById('leaderboardLoading');
 
   const CHARACTERS = {
     parrot: { id: 'parrot', title: 'Parrot', worldName: 'Meadow World', badgeIcon: '🦜', accentColor: '#10b981', skyGradient: ['#38bdf8', '#818cf8', '#a7f3d0'], pipeColor: '#15803d', pipeCap: '#22c55e', hillsColor: '#166534', groundColor: '#14532d' },
@@ -315,45 +119,62 @@
 
   let leaderboardCache = { parrot: [], eagle: [], red: [] };
 
-  function getInitialLeaderboard() {
-    const list = [];
-    for (let i = 1; i <= 100; i++) {
-      list.push({ name: '---', score: 0, date: '---' });
-    }
-    return list;
+  function getLocalStorageKey(worldKey) {
+    return `feathered_flyers_lb_${worldKey}`;
   }
 
   async function fetchLeaderboards() {
     for (const key of ['parrot', 'eagle', 'red']) {
       try {
-        const docRef = db.collection('leaderboards').doc(key);
-        const doc = await docRef.get();
-        if (doc.exists) {
-          leaderboardCache[key] = doc.data().scores || getInitialLeaderboard();
+        if (!db) throw new Error("No db");
+        const snapshot = await db.collection('leaderboards').doc(key).collection('scores').orderBy('score', 'desc').limit(100).get();
+        if (!snapshot.empty) {
+          const scoresList = [];
+          snapshot.forEach(doc => scoresList.push(doc.data()));
+          leaderboardCache[key] = scoresList;
+          try { localStorage.setItem(getLocalStorageKey(key), JSON.stringify(scoresList)); } catch(e){}
         } else {
-          const init = getInitialLeaderboard();
-          await docRef.set({ scores: init });
-          leaderboardCache[key] = init;
+          const localData = localStorage.getItem(getLocalStorageKey(key));
+          leaderboardCache[key] = localData ? JSON.parse(localData) : [];
         }
       } catch (e) {
-        leaderboardCache[key] = getInitialLeaderboard();
+        try {
+          const localData = localStorage.getItem(getLocalStorageKey(key));
+          leaderboardCache[key] = localData ? JSON.parse(localData) : [];
+        } catch (err) {
+          leaderboardCache[key] = [];
+        }
       }
     }
     bestDisplay.textContent = getBestScore(activeCharKey);
   }
 
   function getLeaderboard(worldKey) {
-    return leaderboardCache[worldKey] || getInitialLeaderboard();
+    return leaderboardCache[worldKey] || [];
   }
 
-  async function saveLeaderboardToCloud(worldKey, list) {
-    list.sort((a, b) => b.score - a.score);
-    const top100 = list.slice(0, 100);
+  async function saveScoreToCloud(worldKey, playerName, playerScore) {
+    const newEntry = {
+      name: playerName,
+      score: playerScore,
+      date: new Date().toISOString().split('T')[0]
+    };
+
+    const currentList = getLeaderboard(worldKey);
+    currentList.push(newEntry);
+    currentList.sort((a, b) => b.score - a.score);
+    const top100 = currentList.slice(0, 100);
     leaderboardCache[worldKey] = top100;
+
     try {
-      await db.collection('leaderboards').doc(worldKey).set({ scores: top100 });
-    } catch (e) {
-      console.error("Error saving to cloud:", e);
+      localStorage.setItem(getLocalStorageKey(worldKey), JSON.stringify(top100));
+    } catch(e) {}
+
+    if (db) {
+      try {
+        const scoreId = `${playerName}_${Date.now()}`;
+        await db.collection('leaderboards').doc(worldKey).collection('scores').doc(scoreId).set(newEntry);
+      } catch (e) {}
     }
   }
 
@@ -364,12 +185,20 @@
     return testScore > lb[lb.length - 1].score;
   }
 
-  // Web Audio Synth
   let audioCtx = null;
+  function initAudioContext() {
+    if (!audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) audioCtx = new AC();
+    }
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  }
+
   function playSound(type) {
     if (!soundEnabled) return;
     try {
-      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      initAudioContext();
+      if (!audioCtx) return;
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.connect(gain);
@@ -397,11 +226,20 @@
         gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
         gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
         osc.start(); osc.stop(audioCtx.currentTime + 0.25);
+      } else if (type === 'triumph') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+        osc.frequency.setValueAtTime(554.37, audioCtx.currentTime + 0.1);
+        osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.2);
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.3);
+        gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.6);
       }
     } catch (e) {}
   }
 
-  let flyer = { x: 180, y: 240, vy: 0, r: 20, rotation: 0 };
+  let flyer = { x: 180, y: 240, vy: 0, radiusX: 18, radiusY: 13, rotation: 0 };
   let obstacles = [], worms = [], particles = [], floatTexts = [];
   let frame = 0, speed = 3.5, spawnTimer = 0, bgStars = [];
 
@@ -417,7 +255,7 @@
     gameTitle.textContent = c.title;
     worldTitleBadge.textContent = c.worldName;
     worldBadgeIcon.textContent = c.badgeIcon;
-    sideWorldName.textContent = c.worldName;
+    if (sideWorldName) sideWorldName.textContent = c.worldName;
     modalWorldName.textContent = c.worldName;
     modalCharAvatar.textContent = c.badgeIcon;
 
@@ -437,18 +275,25 @@
     gapPassCount = 0;
     wormsEaten = 0;
     frame = 0;
-    speed = 3.5;
+    speed = baseSpeed;
     spawnTimer = 0;
 
-    flyer = { x: 180, y: 240, vy: 0, r: 20, rotation: 0 };
+    flyer = { 
+      x: V_WIDTH * 0.2, 
+      y: V_HEIGHT * 0.45, 
+      vy: 0, 
+      radiusX: isPortrait ? 20 : 18, 
+      radiusY: isPortrait ? 15 : 13, 
+      rotation: 0 
+    };
     obstacles = [];
     worms = [];
     particles = [];
     floatTexts = [];
 
     bgStars = Array.from({ length: 45 }, () => ({
-      x: Math.random() * W,
-      y: Math.random() * H * 0.75,
+      x: Math.random() * V_WIDTH,
+      y: Math.random() * V_HEIGHT * 0.75,
       r: Math.random() * 2 + 0.5,
       alpha: Math.random()
     }));
@@ -459,6 +304,7 @@
   }
 
   function startGame() {
+    initAudioContext();
     resetGame();
     state = 'playing';
     startModal.classList.add('hidden');
@@ -470,15 +316,23 @@
 
   function flap() {
     if (state === 'playing') {
-      flyer.vy = -6.8;
+      initAudioContext();
+      flyer.vy = flapJump;
       playSound('flap');
       createPuff(flyer.x - 10, flyer.y + 6, '#ffffff', 5);
     }
   }
 
+  function triggerScreenShake() {
+    canvasBox.classList.remove('shake');
+    void canvasBox.offsetWidth;
+    canvasBox.classList.add('shake');
+  }
+
   function endGame() {
     state = 'over';
     playSound('hit');
+    triggerScreenShake();
 
     finalScore.textContent = score;
     finalBest.textContent = getBestScore(activeCharKey);
@@ -486,6 +340,7 @@
     bestDisplay.textContent = getBestScore(activeCharKey);
 
     if (isTop100Score(activeCharKey, score)) {
+      playSound('triumph');
       hsScoreDisplay.textContent = score;
       playerNameInput.value = '';
       nameInputError.classList.add('hidden');
@@ -497,7 +352,7 @@
 
   function createPuff(x, y, color, n = 6) {
     for (let i = 0; i < n; i++) {
-      particles.push({ x, y, vx: (Math.random() - 0.5) * 3, vy: (Math.random() - 0.5) * 3, life: 20 + Math.random() * 10, color });
+      particles.push({ x, y, vx: (Math.random() - 0.5) * 3.5, vy: (Math.random() - 0.5) * 3.5, life: 25 + Math.random() * 15, color });
     }
   }
 
@@ -507,28 +362,28 @@
 
   function drawBackground() {
     const c = CHARACTERS[activeCharKey];
-    const sky = ctx.createLinearGradient(0, 0, 0, H);
+    const sky = ctx.createLinearGradient(0, 0, 0, V_HEIGHT);
     sky.addColorStop(0, c.skyGradient[0]);
     sky.addColorStop(0.5, c.skyGradient[1]);
     sky.addColorStop(1, c.skyGradient[2]);
     ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, W, H);
+    ctx.fillRect(0, 0, V_WIDTH, V_HEIGHT);
 
     if (activeCharKey === 'parrot') {
       ctx.fillStyle = '#fef08a';
-      ctx.beginPath(); ctx.arc(820, 85, 45, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(V_WIDTH * 0.85, V_HEIGHT * 0.15, 45, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
       for (let i = 0; i < 3; i++) {
-        const cx = (frame * 0.3 + i * 280) % (W + 200) - 100;
+        const cx = (frame * 0.3 + i * 280) % (V_WIDTH + 200) - 100;
         ctx.beginPath();
-        ctx.arc(cx, 100 + i * 20, 24, 0, Math.PI * 2);
-        ctx.arc(cx + 20, 90 + i * 20, 30, 0, Math.PI * 2);
-        ctx.arc(cx + 45, 100 + i * 20, 20, 0, Math.PI * 2);
+        ctx.arc(cx, V_HEIGHT * 0.18 + i * 20, 24, 0, Math.PI * 2);
+        ctx.arc(cx + 20, V_HEIGHT * 0.16 + i * 20, 30, 0, Math.PI * 2);
+        ctx.arc(cx + 45, V_HEIGHT * 0.18 + i * 20, 20, 0, Math.PI * 2);
         ctx.fill();
       }
     } else if (activeCharKey === 'eagle') {
       ctx.fillStyle = '#fef3c7';
-      ctx.beginPath(); ctx.arc(780, 95, 42, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(V_WIDTH * 0.8, V_HEIGHT * 0.18, 42, 0, Math.PI * 2); ctx.fill();
       bgStars.forEach(s => {
         ctx.fillStyle = `rgba(255, 255, 255, ${0.3 + Math.sin(frame * 0.05 + s.x) * 0.5})`;
         ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
@@ -536,19 +391,20 @@
     } else if (activeCharKey === 'red') {
       ctx.strokeStyle = 'rgba(244, 63, 94, 0.35)';
       ctx.lineWidth = 1;
-      for (let y = 100; y < H; y += 30) {
-        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+      for (let y = 100; y < V_HEIGHT; y += 30) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(V_WIDTH, y); ctx.stroke();
       }
     }
 
     ctx.fillStyle = c.hillsColor;
-    ctx.beginPath(); ctx.moveTo(0, H);
-    for (let x = 0; x <= W; x += 40) {
-      ctx.lineTo(x, 425 + Math.sin(x * 0.015 + frame * 0.002) * 18);
+    ctx.beginPath(); ctx.moveTo(0, V_HEIGHT);
+    const hillBase = V_HEIGHT - 115;
+    for (let x = 0; x <= V_WIDTH; x += 40) {
+      ctx.lineTo(x, hillBase + Math.sin(x * 0.015 + frame * 0.002) * 18);
     }
-    ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
+    ctx.lineTo(V_WIDTH, V_HEIGHT); ctx.closePath(); ctx.fill();
     ctx.fillStyle = c.groundColor;
-    ctx.fillRect(0, H - 30, W, 30);
+    ctx.fillRect(0, V_HEIGHT - 30, V_WIDTH, 30);
   }
 
   function drawObstacle(x, y, w, h, fromTop) {
@@ -598,7 +454,7 @@
 
     if (activeCharKey === 'parrot') {
       ctx.fillStyle = '#22c55e'; ctx.strokeStyle = '#14532d'; ctx.lineWidth = 2.5;
-      ctx.beginPath(); ctx.ellipse(0, 0, 20, 16, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(0, 0, flyer.radiusX + 2, flyer.radiusY + 3, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.ellipse(-4, Math.sin(frame * 0.3) * 3, 11, 7, -0.2, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#eab308'; ctx.beginPath(); ctx.ellipse(-3, Math.sin(frame * 0.3) * 3 + 2, 7, 4, -0.2, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(8, -5, 6, 0, Math.PI * 2); ctx.fill();
@@ -606,14 +462,14 @@
       ctx.fillStyle = '#f97316'; ctx.beginPath(); ctx.moveTo(14, -6); ctx.quadraticCurveTo(26, -2, 22, 10); ctx.lineTo(14, 4); ctx.closePath(); ctx.fill();
     } else if (activeCharKey === 'eagle') {
       ctx.fillStyle = '#78350f'; ctx.strokeStyle = '#451a03'; ctx.lineWidth = 2.5;
-      ctx.beginPath(); ctx.ellipse(0, 0, 22, 15, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(0, 0, flyer.radiusX + 4, flyer.radiusY + 2, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       ctx.fillStyle = '#fbbf24'; ctx.beginPath(); ctx.ellipse(-4, Math.sin(frame * 0.3) * 3, 13, 6, -0.3, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#f8fafc'; ctx.beginPath(); ctx.arc(10, -4, 8, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#000000'; ctx.beginPath(); ctx.arc(11, -5, 2, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#f59e0b'; ctx.beginPath(); ctx.moveTo(15, -6); ctx.lineTo(27, 0); ctx.lineTo(15, 5); ctx.closePath(); ctx.fill();
     } else if (activeCharKey === 'red') {
       ctx.fillStyle = '#ef4444'; ctx.strokeStyle = '#7f1d1d'; ctx.lineWidth = 2.5;
-      ctx.beginPath(); ctx.arc(0, 0, 18, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 0, flyer.radiusX, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       ctx.fillStyle = '#fef2f2'; ctx.beginPath(); ctx.arc(4, 6, 10, 0, Math.PI); ctx.fill();
       ctx.fillStyle = '#dc2626'; ctx.beginPath(); ctx.ellipse(-6, Math.sin(frame * 0.3) * 3, 9, 5, -0.2, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(7, -4, 5, 0, Math.PI * 2); ctx.fill();
@@ -624,9 +480,9 @@
   }
 
   function spawnObstacle() {
-    const gap = 160;
-    const topH = 60 + Math.random() * (H - gap - 120);
-    const x = W + 40, w = 75;
+    const gap = gapHeight;
+    const topH = 60 + Math.random() * (V_HEIGHT - gap - 120);
+    const x = V_WIDTH + 40, w = 75;
     obstacles.push({ x, w, topH, gap, passed: false });
     gapPassCount++;
     if (gapPassCount % 2 === 0) {
@@ -634,15 +490,35 @@
     }
   }
 
+  function checkCollision(obs) {
+    const cx = flyer.x, cy = flyer.y, rx = flyer.radiusX, ry = flyer.radiusY;
+    const topClosestX = Math.max(obs.x, Math.min(cx, obs.x + obs.w));
+    const topClosestY = Math.max(0, Math.min(cy, obs.topH));
+    if (((cx - topClosestX) / rx) ** 2 + ((cy - topClosestY) / ry) ** 2 <= 1) return true;
+
+    const botY = obs.topH + obs.gap, botH = V_HEIGHT - botY;
+    const botClosestX = Math.max(obs.x, Math.min(cx, obs.x + obs.w));
+    const botClosestY = Math.max(botY, Math.min(cy, botY + botH));
+    if (((cx - botClosestX) / rx) ** 2 + ((cy - botClosestY) / ry) ** 2 <= 1) return true;
+
+    return false;
+  }
+
   function update() {
     frame++;
     if (state === 'playing') {
-      speed = Math.min(5.5, 3.5 + score * 0.012);
-      flyer.vy += 0.33;
+      speed = Math.min(6.5, baseSpeed + score * 0.012);
+      flyer.vy += gravity;
       flyer.y += flyer.vy;
 
+      if (frame % 3 === 0) {
+        let trailColor = activeCharKey === 'parrot' ? '#22c55e' : (activeCharKey === 'eagle' ? '#fbbf24' : '#ef4444');
+        createPuff(flyer.x - 12, flyer.y, trailColor, 2);
+      }
+
       spawnTimer++;
-      if (spawnTimer > Math.max(70, 105 - score * 0.2)) {
+      const spawnInterval = isPortrait ? Math.max(75, 115 - score * 0.2) : Math.max(70, 105 - score * 0.2);
+      if (spawnTimer > spawnInterval) {
         spawnObstacle();
         spawnTimer = 0;
       }
@@ -655,15 +531,12 @@
           scoreDisplay.textContent = score;
           addFloatText(flyer.x, flyer.y - 20, '+1', '#6ee7b7');
         }
-        const fx = flyer.x, fy = flyer.y, fr = flyer.r * 0.75;
-        if (fx + fr > o.x && fx - fr < o.x + o.w && (fy - fr < o.topH || fy + fr > o.topH + o.gap)) {
-          endGame();
-        }
+        if (checkCollision(o)) endGame();
       });
 
       worms.forEach(w => {
         w.x -= speed;
-        if (!w.taken && Math.hypot(flyer.x - w.x, flyer.y - w.y) < flyer.r + w.r) {
+        if (!w.taken && Math.hypot(flyer.x - w.x, flyer.y - w.y) < flyer.radiusX + w.r) {
           w.taken = true;
           wormsEaten++;
           score += 1;
@@ -678,9 +551,9 @@
 
       obstacles = obstacles.filter(o => o.x + o.w > -40);
       worms = worms.filter(w => w.x > -40 && !w.taken);
-      if (flyer.y < 0 || flyer.y > H - 30) endGame();
+      if (flyer.y < 0 || flyer.y > V_HEIGHT - 30) endGame();
     } else if (state === 'menu') {
-      flyer.y = 240 + Math.sin(frame * 0.05) * 12;
+      flyer.y = V_HEIGHT * 0.45 + Math.sin(frame * 0.05) * 12;
       flyer.vy = 0;
     }
 
@@ -695,12 +568,12 @@
     if (state === 'playing' || state === 'over') {
       obstacles.forEach(o => {
         drawObstacle(o.x, 0, o.w, o.topH, true);
-        drawObstacle(o.x, o.topH + o.gap, o.w, H - o.topH - o.gap, false);
+        drawObstacle(o.x, o.topH + o.gap, o.w, V_HEIGHT - o.topH - o.gap, false);
       });
       worms.forEach(drawWorm);
     } else {
-      drawObstacle(680, 0, 75, 160, true);
-      drawObstacle(740, 340, 75, 200, false);
+      drawObstacle(V_WIDTH * 0.7, 0, 75, V_HEIGHT * 0.3, true);
+      drawObstacle(V_WIDTH * 0.78, V_HEIGHT * 0.6, 75, V_HEIGHT * 0.4, false);
     }
 
     particles.forEach(p => {
@@ -732,9 +605,9 @@
     ['parrot', 'eagle', 'red'].forEach(k => {
       const btn = document.getElementById(`tab-${k}`);
       if (k === tabKey) {
-        btn.className = 'flex-1 py-2 rounded-lg text-xs font-bold transition-all bg-emerald-500 text-slate-950 shadow';
+        btn.className = 'flex-1 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all bg-emerald-500 text-slate-950 shadow';
       } else {
-        btn.className = 'flex-1 py-2 rounded-lg text-xs font-bold transition-all text-white/70 hover:bg-white/10';
+        btn.className = 'flex-1 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all text-white/70 hover:bg-white/10 shadow-none';
       }
     });
     renderLeaderboardContent();
@@ -750,68 +623,78 @@
     const medals = ['🥇 1st', '🥈 2nd', '🥉 3rd'];
     const colors = ['border-amber-400 bg-amber-400/10 text-amber-300', 'border-slate-300 bg-slate-300/10 text-slate-200', 'border-amber-600 bg-amber-600/10 text-amber-500'];
 
+    // Render Top 3 Cards dynamically based on available records
     for (let i = 0; i < 3; i++) {
       const item = list[i] || { name: '---', score: 0 };
       top3Container.innerHTML += `
-        <div class="border ${colors[i]} rounded-2xl p-2.5 text-center flex flex-col justify-center">
-          <div class="text-[10px] font-black uppercase tracking-wider">${medals[i]}</div>
-          <div class="text-sm font-black truncate my-0.5">${item.name}</div>
-          <div class="text-lg font-black">${item.score}</div>
+        <div class="border ${colors[i]} rounded-xl p-2 text-center flex flex-col justify-center">
+          <div class="text-[8px] sm:text-[10px] font-black uppercase tracking-wider">${medals[i]}</div>
+          <div class="text-[11px] sm:text-sm font-black truncate my-0.5">${item.name}</div>
+          <div class="text-sm sm:text-lg font-black">${item.score}</div>
         </div>
       `;
     }
 
-    for (let i = 3; i < list.length; i++) {
-      const item = list[i] || { name: '---', score: 0 };
+    // Render Remaining Rank Rows (Up to Top 100 organically without fake padding)
+    if (list.length === 0) {
       const tr = document.createElement('tr');
-      tr.className = 'hover:bg-white/5 transition-colors';
-      tr.innerHTML = `
-        <td class="py-2 pl-2 font-black text-white/50">#${i + 1}</td>
-        <td class="py-2 font-bold text-white tracking-wide">${item.name}</td>
-        <td class="py-2 text-right pr-2 font-black text-amber-300">${item.score}</td>
-      `;
+      tr.innerHTML = `<td colspan="3" class="py-4 text-center text-white/40 text-xs font-bold">No scores recorded yet. Be the first!</td>`;
       rowsContainer.appendChild(tr);
+    } else {
+      for (let i = 3; i < list.length; i++) {
+        const item = list[i];
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-white/5 transition-colors';
+        tr.innerHTML = `
+          <td class="py-1.5 pl-2 font-black text-white/50">#${i + 1}</td>
+          <td class="py-1.5 font-bold text-white tracking-wide">${item.name}</td>
+          <td class="py-1.5 text-right pr-2 font-black text-amber-300">${item.score}</td>
+        `;
+        rowsContainer.appendChild(tr);
+      }
     }
   }
 
   async function showLeaderboardModal(worldKey = activeCharKey) {
-    await fetchLeaderboards();
-    setLeaderboardTab(worldKey);
+    leaderboardLoading.classList.remove('hidden');
     leaderboardModal.classList.remove('hidden');
+    setLeaderboardTab(worldKey);
+    await fetchLeaderboards();
+    leaderboardLoading.classList.add('hidden');
+    renderLeaderboardContent();
   }
 
   document.getElementById('submitScoreBtn').addEventListener('click', async () => {
-    const val = playerNameInput.value.trim().toUpperCase();
+    let val = playerNameInput.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    playerNameInput.value = val;
+
     if (val.length < 3 || val.length > 6) {
       nameInputError.classList.remove('hidden');
       return;
     }
     nameInputError.classList.add('hidden');
     
-    const currentList = getLeaderboard(activeCharKey);
-    currentList.push({
-      name: val,
-      score: score,
-      date: new Date().toISOString().split('T')[0]
-    });
-
-    await saveLeaderboardToCloud(activeCharKey, currentList);
+    await saveScoreToCloud(activeCharKey, val, score);
     bestDisplay.textContent = getBestScore(activeCharKey);
 
     highscoreModal.classList.add('hidden');
-    overModal.classList.add('hidden');
-    showLeaderboardModal(activeCharKey);
+    overModal.classList.remove('hidden');
   });
 
-  canvas.addEventListener('pointerdown', e => { e.preventDefault(); if (state === 'playing') flap(); });
+  canvas.addEventListener('pointerdown', e => { 
+    e.preventDefault(); 
+    if (state === 'playing') flap(); 
+  });
 
   window.addEventListener('keydown', e => {
-    if (!highscoreModal.classList.contains('hidden')) return;
+    if (document.activeElement === playerNameInput) return;
+    if (!highscoreModal.classList.contains('hidden') || !leaderboardModal.classList.contains('hidden') || !howModal.classList.contains('hidden')) return;
+
     if (e.code === 'Space' || e.code === 'ArrowUp') {
       e.preventDefault();
       if (state === 'playing') flap();
-      else if (state === 'menu') startGame();
-      else if (state === 'over') startGame();
+      else if (state === 'menu' && !startModal.classList.contains('hidden')) startGame();
+      else if (state === 'over' && !overModal.classList.contains('hidden')) startGame();
     }
   });
 
@@ -836,12 +719,9 @@
   document.getElementById('howToggle').addEventListener('click', () => howModal.classList.remove('hidden'));
   document.getElementById('closeHowBtn').addEventListener('click', () => howModal.classList.add('hidden'));
 
+  updateResolutionAndPhysics();
   switchCharacter('parrot');
-  fetchLeaderboards().then(() => {
-    resetGame();
-  });
+  fetchLeaderboards().then(() => resetGame());
   loop();
 })();
 </script>
-</body>
-</html>
