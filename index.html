@@ -22,7 +22,7 @@
   :root {
     --accent-color: #10b981;
     --accent-glow: rgba(16, 185, 129, 0.4);
-    --panel-bg: rgba(15, 23, 42, 0.75);
+    --panel-bg: rgba(15, 23, 42, 0.85);
     --panel-border: rgba(255, 255, 255, 0.22);
   }
 
@@ -86,18 +86,19 @@
   .canvas-container {
     position: relative;
     width: 100%;
-    aspect-ratio: 16 / 9;
-    max-height: 80vh;
     overflow: hidden;
     border-radius: clamp(12px, 2vw, 24px);
     background: #000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
   }
 
-  /* Force stretched rendering on mobile viewports */
+  /* Aspect Ratio & Rendering Fix: object-fit contain prevents stretching */
   canvas {
     width: 100%;
     height: 100%;
-    object-fit: fill;
+    object-fit: contain;
     touch-action: manipulation;
     display: block;
   }
@@ -158,7 +159,7 @@
             <span id="gameTitle">Parrot</span>
             <span id="worldTitleBadge" class="text-[9px] sm:text-xs px-2 py-0.5 rounded-full bg-emerald-500/30 border border-emerald-400/50 font-bold text-emerald-200">Meadow World</span>
           </h1>
-          <p class="text-[9px] sm:text-xs text-white/70 hidden sm:block">Tap canvas or Space to flap! Collect worms for extra points.</p>
+          <p class="text-[9px] sm:text-xs text-white/70 hidden sm:block">Tap screen or press Space to flap! Collect worms for extra points.</p>
         </div>
       </div>
 
@@ -183,14 +184,14 @@
       
       <!-- Canvas Wrapper -->
       <div id="canvasBox" class="canvas-container glass-card rounded-2xl sm:rounded-3xl shadow-2xl relative flex-1 w-full">
-        <canvas id="gameCanvas" width="960" height="540"></canvas>
+        <canvas id="gameCanvas"></canvas>
 
         <!-- Start Overlay -->
-        <div id="startModal" class="absolute inset-0 glass-card bg-slate-950/80 flex items-center justify-center p-3 sm:p-6 transition-opacity duration-300">
+        <div id="startModal" class="absolute inset-0 glass-card bg-slate-950/80 flex items-center justify-center p-3 sm:p-6 transition-opacity duration-300 z-10">
           <div class="max-w-md w-full bg-slate-900/95 border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 text-center backdrop-blur-xl shadow-2xl">
             <div id="modalCharAvatar" class="text-4xl sm:text-6xl mb-1 float-worm inline-block">🦜</div>
             <h2 id="modalWorldName" class="text-lg sm:text-2xl font-black text-white">Meadow World</h2>
-            <p class="text-[10px] sm:text-xs text-slate-300 mt-0.5 mb-3">Select a flyer! Tap canvas or press Space/Up Arrow to fly.</p>
+            <p class="text-[10px] sm:text-xs text-slate-300 mt-0.5 mb-3">Select a flyer! Tap canvas or press Space to fly.</p>
             <div class="text-[10px] sm:text-xs font-bold text-white/70 mb-2 text-left uppercase tracking-wider">Choose Flyer & World:</div>
             
             <div class="grid grid-cols-3 gap-2 mb-4">
@@ -234,7 +235,7 @@
         </div>
 
         <!-- Game Over Modal -->
-        <div id="overModal" class="absolute inset-0 glass-card bg-slate-950/85 flex items-center justify-center p-3 sm:p-6 hidden">
+        <div id="overModal" class="absolute inset-0 glass-card bg-slate-950/85 flex items-center justify-center p-3 sm:p-6 hidden z-20">
           <div class="max-w-md w-full bg-slate-900/95 border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 text-center backdrop-blur-xl shadow-2xl">
             <div class="text-3xl sm:text-5xl mb-1">💥</div>
             <h2 class="text-xl sm:text-3xl font-black text-red-400">Bonk! Crash!</h2>
@@ -281,7 +282,7 @@
         </div>
 
         <!-- Rules Modal -->
-        <div id="howModal" class="absolute inset-0 glass-card bg-slate-950/85 flex items-center justify-center p-3 sm:p-6 hidden z-20">
+        <div id="howModal" class="absolute inset-0 glass-card bg-slate-950/85 flex items-center justify-center p-3 sm:p-6 hidden z-30">
           <div class="max-w-md w-full bg-slate-900/95 border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 text-left backdrop-blur-xl shadow-2xl">
             <h3 class="text-base sm:text-xl font-black text-white mb-2 flex items-center gap-2"><span>🎮</span> How to Play</h3>
             <ul class="space-y-2 text-xs sm:text-sm text-slate-200 mb-4">
@@ -317,6 +318,7 @@
 
 <script>
 (() => {
+  // Firebase Configuration
   const firebaseConfig = {
     apiKey: "AIzaSyDFx15qAqYZfwAYt-BdWsuZwcfK2Soxofs",
     authDomain: "hennessy-f5cdb.firebaseapp.com",
@@ -335,16 +337,65 @@
 
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
-  const W = 960;
-  const H = 540;
+  const canvasBox = document.getElementById('canvasBox');
+
+  // Dynamic Virtual Resolution & Orientation State
+  let V_WIDTH = 960;
+  let V_HEIGHT = 540;
+  let isPortrait = false;
+
+  // Physics Scaling factors dynamically configured per mode
+  let gravity = 0.33;
+  let flapJump = -6.8;
+  let baseSpeed = 3.5;
+  let gapHeight = 155;
+
+  function updateResolutionAndPhysics() {
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+    const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || windowWidth < 768;
+
+    isPortrait = isMobileDevice && (windowHeight > windowWidth);
+
+    if (isPortrait) {
+      V_WIDTH = 540;
+      V_HEIGHT = 960;
+      canvasBox.style.aspectRatio = "9 / 16";
+      canvasBox.style.maxHeight = "72vh";
+      
+      // Dynamic Physics Tuning for Vertical Flight
+      gravity = 0.42;
+      flapJump = -8.5;
+      baseSpeed = 3.2;
+      gapHeight = 220;
+    } else {
+      V_WIDTH = 960;
+      V_HEIGHT = 540;
+      canvasBox.style.aspectRatio = "16 / 9";
+      canvasBox.style.maxHeight = "80vh";
+
+      // Dynamic Physics Tuning for Widescreen Flight
+      gravity = 0.33;
+      flapJump = -6.8;
+      baseSpeed = 3.5;
+      gapHeight = 155;
+    }
+
+    setupCanvasDPI();
+  }
 
   function setupCanvasDPI() {
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = W * dpr;
-    canvas.height = H * dpr;
+    canvas.width = V_WIDTH * dpr;
+    canvas.height = V_HEIGHT * dpr;
+    ctx.resetTransform();
     ctx.scale(dpr, dpr);
   }
-  setupCanvasDPI();
+
+  window.addEventListener('resize', () => {
+    updateResolutionAndPhysics();
+    if (state === 'menu') resetGame();
+  });
 
   const scoreDisplay = document.getElementById('scoreDisplay');
   const bestDisplay = document.getElementById('bestDisplay');
@@ -552,18 +603,25 @@
     gapPassCount = 0;
     wormsEaten = 0;
     frame = 0;
-    speed = 3.5;
+    speed = baseSpeed;
     spawnTimer = 0;
 
-    flyer = { x: 180, y: 240, vy: 0, radiusX: 18, radiusY: 13, rotation: 0 };
+    flyer = { 
+      x: V_WIDTH * 0.2, 
+      y: V_HEIGHT * 0.45, 
+      vy: 0, 
+      radiusX: isPortrait ? 20 : 18, 
+      radiusY: isPortrait ? 15 : 13, 
+      rotation: 0 
+    };
     obstacles = [];
     worms = [];
     particles = [];
     floatTexts = [];
 
     bgStars = Array.from({ length: 45 }, () => ({
-      x: Math.random() * W,
-      y: Math.random() * H * 0.75,
+      x: Math.random() * V_WIDTH,
+      y: Math.random() * V_HEIGHT * 0.75,
       r: Math.random() * 2 + 0.5,
       alpha: Math.random()
     }));
@@ -587,17 +645,16 @@
   function flap() {
     if (state === 'playing') {
       initAudioContext();
-      flyer.vy = -6.8;
+      flyer.vy = flapJump;
       playSound('flap');
       createPuff(flyer.x - 10, flyer.y + 6, '#ffffff', 5);
     }
   }
 
   function triggerScreenShake() {
-    const box = document.getElementById('canvasBox');
-    box.classList.remove('shake');
-    void box.offsetWidth;
-    box.classList.add('shake');
+    canvasBox.classList.remove('shake');
+    void canvasBox.offsetWidth;
+    canvasBox.classList.add('shake');
   }
 
   function endGame() {
@@ -633,28 +690,28 @@
 
   function drawBackground() {
     const c = CHARACTERS[activeCharKey];
-    const sky = ctx.createLinearGradient(0, 0, 0, H);
+    const sky = ctx.createLinearGradient(0, 0, 0, V_HEIGHT);
     sky.addColorStop(0, c.skyGradient[0]);
     sky.addColorStop(0.5, c.skyGradient[1]);
     sky.addColorStop(1, c.skyGradient[2]);
     ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, W, H);
+    ctx.fillRect(0, 0, V_WIDTH, V_HEIGHT);
 
     if (activeCharKey === 'parrot') {
       ctx.fillStyle = '#fef08a';
-      ctx.beginPath(); ctx.arc(820, 85, 45, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(V_WIDTH * 0.85, V_HEIGHT * 0.15, 45, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
       for (let i = 0; i < 3; i++) {
-        const cx = (frame * 0.3 + i * 280) % (W + 200) - 100;
+        const cx = (frame * 0.3 + i * 280) % (V_WIDTH + 200) - 100;
         ctx.beginPath();
-        ctx.arc(cx, 100 + i * 20, 24, 0, Math.PI * 2);
-        ctx.arc(cx + 20, 90 + i * 20, 30, 0, Math.PI * 2);
-        ctx.arc(cx + 45, 100 + i * 20, 20, 0, Math.PI * 2);
+        ctx.arc(cx, V_HEIGHT * 0.18 + i * 20, 24, 0, Math.PI * 2);
+        ctx.arc(cx + 20, V_HEIGHT * 0.16 + i * 20, 30, 0, Math.PI * 2);
+        ctx.arc(cx + 45, V_HEIGHT * 0.18 + i * 20, 20, 0, Math.PI * 2);
         ctx.fill();
       }
     } else if (activeCharKey === 'eagle') {
       ctx.fillStyle = '#fef3c7';
-      ctx.beginPath(); ctx.arc(780, 95, 42, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(V_WIDTH * 0.8, V_HEIGHT * 0.18, 42, 0, Math.PI * 2); ctx.fill();
       bgStars.forEach(s => {
         ctx.fillStyle = `rgba(255, 255, 255, ${0.3 + Math.sin(frame * 0.05 + s.x) * 0.5})`;
         ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
@@ -662,19 +719,20 @@
     } else if (activeCharKey === 'red') {
       ctx.strokeStyle = 'rgba(244, 63, 94, 0.35)';
       ctx.lineWidth = 1;
-      for (let y = 100; y < H; y += 30) {
-        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+      for (let y = 100; y < V_HEIGHT; y += 30) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(V_WIDTH, y); ctx.stroke();
       }
     }
 
     ctx.fillStyle = c.hillsColor;
-    ctx.beginPath(); ctx.moveTo(0, H);
-    for (let x = 0; x <= W; x += 40) {
-      ctx.lineTo(x, 425 + Math.sin(x * 0.015 + frame * 0.002) * 18);
+    ctx.beginPath(); ctx.moveTo(0, V_HEIGHT);
+    const hillBase = V_HEIGHT - 115;
+    for (let x = 0; x <= V_WIDTH; x += 40) {
+      ctx.lineTo(x, hillBase + Math.sin(x * 0.015 + frame * 0.002) * 18);
     }
-    ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
+    ctx.lineTo(V_WIDTH, V_HEIGHT); ctx.closePath(); ctx.fill();
     ctx.fillStyle = c.groundColor;
-    ctx.fillRect(0, H - 30, W, 30);
+    ctx.fillRect(0, V_HEIGHT - 30, V_WIDTH, 30);
   }
 
   function drawObstacle(x, y, w, h, fromTop) {
@@ -724,7 +782,7 @@
 
     if (activeCharKey === 'parrot') {
       ctx.fillStyle = '#22c55e'; ctx.strokeStyle = '#14532d'; ctx.lineWidth = 2.5;
-      ctx.beginPath(); ctx.ellipse(0, 0, 20, 16, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(0, 0, flyer.radiusX + 2, flyer.radiusY + 3, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.ellipse(-4, Math.sin(frame * 0.3) * 3, 11, 7, -0.2, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#eab308'; ctx.beginPath(); ctx.ellipse(-3, Math.sin(frame * 0.3) * 3 + 2, 7, 4, -0.2, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(8, -5, 6, 0, Math.PI * 2); ctx.fill();
@@ -732,14 +790,14 @@
       ctx.fillStyle = '#f97316'; ctx.beginPath(); ctx.moveTo(14, -6); ctx.quadraticCurveTo(26, -2, 22, 10); ctx.lineTo(14, 4); ctx.closePath(); ctx.fill();
     } else if (activeCharKey === 'eagle') {
       ctx.fillStyle = '#78350f'; ctx.strokeStyle = '#451a03'; ctx.lineWidth = 2.5;
-      ctx.beginPath(); ctx.ellipse(0, 0, 22, 15, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(0, 0, flyer.radiusX + 4, flyer.radiusY + 2, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       ctx.fillStyle = '#fbbf24'; ctx.beginPath(); ctx.ellipse(-4, Math.sin(frame * 0.3) * 3, 13, 6, -0.3, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#f8fafc'; ctx.beginPath(); ctx.arc(10, -4, 8, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#000000'; ctx.beginPath(); ctx.arc(11, -5, 2, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#f59e0b'; ctx.beginPath(); ctx.moveTo(15, -6); ctx.lineTo(27, 0); ctx.lineTo(15, 5); ctx.closePath(); ctx.fill();
     } else if (activeCharKey === 'red') {
       ctx.fillStyle = '#ef4444'; ctx.strokeStyle = '#7f1d1d'; ctx.lineWidth = 2.5;
-      ctx.beginPath(); ctx.arc(0, 0, 18, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 0, flyer.radiusX, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       ctx.fillStyle = '#fef2f2'; ctx.beginPath(); ctx.arc(4, 6, 10, 0, Math.PI); ctx.fill();
       ctx.fillStyle = '#dc2626'; ctx.beginPath(); ctx.ellipse(-6, Math.sin(frame * 0.3) * 3, 9, 5, -0.2, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(7, -4, 5, 0, Math.PI * 2); ctx.fill();
@@ -750,9 +808,9 @@
   }
 
   function spawnObstacle() {
-    const gap = 155;
-    const topH = 60 + Math.random() * (H - gap - 120);
-    const x = W + 40, w = 75;
+    const gap = gapHeight;
+    const topH = 60 + Math.random() * (V_HEIGHT - gap - 120);
+    const x = V_WIDTH + 40, w = 75;
     obstacles.push({ x, w, topH, gap, passed: false });
     gapPassCount++;
     if (gapPassCount % 2 === 0) {
@@ -766,7 +824,7 @@
     const topClosestY = Math.max(0, Math.min(cy, obs.topH));
     if (((cx - topClosestX) / rx) ** 2 + ((cy - topClosestY) / ry) ** 2 <= 1) return true;
 
-    const botY = obs.topH + obs.gap, botH = H - botY;
+    const botY = obs.topH + obs.gap, botH = V_HEIGHT - botY;
     const botClosestX = Math.max(obs.x, Math.min(cx, obs.x + obs.w));
     const botClosestY = Math.max(botY, Math.min(cy, botY + botH));
     if (((cx - botClosestX) / rx) ** 2 + ((cy - botClosestY) / ry) ** 2 <= 1) return true;
@@ -777,8 +835,8 @@
   function update() {
     frame++;
     if (state === 'playing') {
-      speed = Math.min(5.5, 3.5 + score * 0.012);
-      flyer.vy += 0.33;
+      speed = Math.min(6.5, baseSpeed + score * 0.012);
+      flyer.vy += gravity;
       flyer.y += flyer.vy;
 
       if (frame % 3 === 0) {
@@ -787,7 +845,8 @@
       }
 
       spawnTimer++;
-      if (spawnTimer > Math.max(70, 105 - score * 0.2)) {
+      const spawnInterval = isPortrait ? Math.max(75, 115 - score * 0.2) : Math.max(70, 105 - score * 0.2);
+      if (spawnTimer > spawnInterval) {
         spawnObstacle();
         spawnTimer = 0;
       }
@@ -820,9 +879,9 @@
 
       obstacles = obstacles.filter(o => o.x + o.w > -40);
       worms = worms.filter(w => w.x > -40 && !w.taken);
-      if (flyer.y < 0 || flyer.y > H - 30) endGame();
+      if (flyer.y < 0 || flyer.y > V_HEIGHT - 30) endGame();
     } else if (state === 'menu') {
-      flyer.y = 240 + Math.sin(frame * 0.05) * 12;
+      flyer.y = V_HEIGHT * 0.45 + Math.sin(frame * 0.05) * 12;
       flyer.vy = 0;
     }
 
@@ -837,12 +896,12 @@
     if (state === 'playing' || state === 'over') {
       obstacles.forEach(o => {
         drawObstacle(o.x, 0, o.w, o.topH, true);
-        drawObstacle(o.x, o.topH + o.gap, o.w, H - o.topH - o.gap, false);
+        drawObstacle(o.x, o.topH + o.gap, o.w, V_HEIGHT - o.topH - o.gap, false);
       });
       worms.forEach(drawWorm);
     } else {
-      drawObstacle(680, 0, 75, 160, true);
-      drawObstacle(740, 340, 75, 200, false);
+      drawObstacle(V_WIDTH * 0.7, 0, 75, V_HEIGHT * 0.3, true);
+      drawObstacle(V_WIDTH * 0.78, V_HEIGHT * 0.6, 75, V_HEIGHT * 0.4, false);
     }
 
     particles.forEach(p => {
@@ -980,6 +1039,7 @@
   document.getElementById('howToggle').addEventListener('click', () => howModal.classList.remove('hidden'));
   document.getElementById('closeHowBtn').addEventListener('click', () => howModal.classList.add('hidden'));
 
+  updateResolutionAndPhysics();
   switchCharacter('parrot');
   fetchLeaderboards().then(() => resetGame());
   loop();
