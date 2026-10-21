@@ -88,6 +88,7 @@
     width: 100%;
     aspect-ratio: 16 / 9;
     max-height: 80vh;
+    overflow: hidden;
   }
 
   canvas {
@@ -96,6 +97,19 @@
     border-radius: clamp(12px, 2vw, 24px);
     touch-action: manipulation;
     display: block;
+  }
+
+  /* Screen Shake Effect */
+  @keyframes screenShake {
+    0% { transform: translate(0, 0) rotate(0deg); }
+    20% { transform: translate(-8px, 5px) rotate(-1deg); }
+    40% { transform: translate(8px, -5px) rotate(1deg); }
+    60% { transform: translate(-5px, -3px) rotate(-0.5deg); }
+    80% { transform: translate(5px, 3px) rotate(0.5deg); }
+    100% { transform: translate(0, 0) rotate(0deg); }
+  }
+  .shake {
+    animation: screenShake 0.4s cubic-bezier(.36,.07,.19,.97) both;
   }
 
   .custom-scroll::-webkit-scrollbar { width: 6px; }
@@ -121,15 +135,17 @@
   }
   .credit-anim { animation: creditGlow 3s infinite ease-in-out; }
 
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
   .spinner {
-    border: 3px solid rgba(255, 255, 255, 0.1);
+    width: 32px;
+    height: 32px;
+    border: 3px solid rgba(255, 255, 255, 0.2);
+    border-top-color: var(--accent-color);
     border-radius: 50%;
-    border-top: 3px solid var(--accent-color);
-    width: 28px;
-    height: 28px;
     animation: spin 0.8s linear infinite;
   }
-  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
@@ -169,7 +185,7 @@
     <div class="flex flex-col lg:flex-row gap-3 sm:gap-4 items-center justify-center w-full">
       
       <!-- Canvas Wrapper -->
-      <div class="canvas-container glass-card rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl relative flex-1">
+      <div id="canvasBox" class="canvas-container glass-card rounded-2xl sm:rounded-3xl shadow-2xl relative flex-1">
         <canvas id="gameCanvas" width="960" height="540"></canvas>
 
         <!-- Start Overlay -->
@@ -203,19 +219,19 @@
           <div class="max-w-md w-full bg-slate-900/95 border border-amber-400/50 rounded-2xl sm:rounded-3xl p-5 sm:p-6 text-center backdrop-blur-xl shadow-2xl">
             <div class="text-4xl sm:text-5xl mb-1 sm:mb-2">🏆</div>
             <h2 class="text-xl sm:text-2xl font-black text-amber-300">TOP 100 HIGH SCORE!</h2>
-            <p class="text-slate-300 text-[11px] sm:text-xs mt-0.5 mb-3">You made it onto the Global Cloud Leaderboard!</p>
+            <p class="text-slate-300 text-[11px] sm:text-xs mt-0.5 mb-3">You made it onto the Permanent Cloud Leaderboard!</p>
             <div class="bg-white/5 p-3 rounded-xl sm:rounded-2xl border border-white/10 mb-3">
               <div class="text-[9px] sm:text-[10px] uppercase font-bold text-white/50">Your Score</div>
               <div id="hsScoreDisplay" class="text-2xl sm:text-3xl font-black text-amber-300">0</div>
             </div>
             <div class="text-left mb-3">
-              <label class="block text-[11px] sm:text-xs font-bold text-white/70 mb-1">Enter Flyer Name (3-6 characters):</label>
+              <label class="block text-[11px] sm:text-xs font-bold text-white/70 mb-1">Enter Flyer Name (3-6 characters, letters/numbers only):</label>
               <input id="playerNameInput" type="text" maxlength="6" placeholder="FLYER" 
                      class="w-full px-3 py-2.5 sm:py-3 rounded-xl bg-slate-800 text-white font-black text-center text-base sm:text-lg tracking-wider border border-white/20 focus:border-amber-400 focus:outline-none uppercase">
-              <p id="nameInputError" class="text-red-400 text-[11px] font-bold mt-1 hidden text-center">Name must be between 3 and 6 letters/numbers!</p>
+              <p id="nameInputError" class="text-red-400 text-[11px] font-bold mt-1 hidden text-center">Name must be 3-6 alphanumeric characters (no symbols)!</p>
             </div>
             <button id="submitScoreBtn" class="w-full py-3 sm:py-3.5 rounded-xl font-extrabold bg-amber-400 hover:bg-amber-300 text-slate-950 shadow-lg transition-all text-xs sm:text-sm">
-              Save Score & Continue ↻
+              Save Score & Play Again ↻
             </button>
           </div>
         </div>
@@ -243,7 +259,7 @@
         <div id="leaderboardModal" class="absolute inset-0 glass-card bg-slate-950/90 flex items-center justify-center p-3 sm:p-6 hidden z-30">
           <div class="max-w-lg w-full max-h-[92%] bg-slate-900/95 border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-5 flex flex-col backdrop-blur-xl shadow-2xl">
             <div class="flex items-center justify-between mb-3">
-              <h3 class="text-base sm:text-xl font-black text-amber-300 flex items-center gap-2"><span>🏆</span> Global Leaderboard (Top 100)</h3>
+              <h3 class="text-base sm:text-xl font-black text-amber-300 flex items-center gap-2"><span>🏆</span> Global Cloud Leaderboard (Top 100)</h3>
               <button id="closeLeaderboardBtn" class="text-white/60 hover:text-white font-bold text-lg px-1.5">✕</button>
             </div>
             <div class="flex gap-1.5 sm:gap-2 mb-3 bg-white/5 p-1 sm:p-1.5 rounded-xl">
@@ -251,20 +267,18 @@
               <button onclick="setLeaderboardTab('eagle')" id="tab-eagle" class="flex-1 py-1.5 sm:py-2 rounded-lg text-[11px] sm:text-xs font-bold transition-all text-white/70 hover:bg-white/10">🦅 Enchanted</button>
               <button onclick="setLeaderboardTab('red')" id="tab-red" class="flex-1 py-1.5 sm:py-2 rounded-lg text-[11px] sm:text-xs font-bold transition-all text-white/70 hover:bg-white/10">🔴 Cyber</button>
             </div>
-            <div id="leaderboardLoading" class="hidden flex-1 flex flex-col items-center justify-center py-8">
-              <div class="spinner mb-2"></div>
-              <span class="text-xs text-white/60 font-bold">Fetching High Scores...</span>
+            <div id="top3Container" class="grid grid-cols-3 gap-2 mb-2 sm:mb-3"></div>
+            <div id="leaderboardLoading" class="flex flex-col items-center justify-center py-12 gap-3 hidden">
+              <div class="spinner"></div>
+              <p class="text-xs text-white/60 font-bold">Loading scores from Cloud Database...</p>
             </div>
-            <div id="leaderboardContent" class="flex-1 flex flex-col overflow-hidden">
-              <div id="top3Container" class="grid grid-cols-3 gap-2 mb-2 sm:mb-3"></div>
-              <div class="flex-1 overflow-y-auto custom-scroll pr-1">
-                <table class="w-full text-left text-[11px] sm:text-xs">
-                  <thead class="text-[9px] sm:text-[10px] uppercase font-extrabold text-white/40 sticky top-0 bg-slate-900/90 border-b border-white/10">
-                    <tr><th class="py-1.5 pl-2">Rank</th><th class="py-1.5">Flyer</th><th class="py-1.5 text-right pr-2">Score</th></tr>
-                  </thead>
-                  <tbody id="leaderboardRows" class="divide-y divide-white/5"></tbody>
-                </table>
-              </div>
+            <div class="flex-1 overflow-y-auto custom-scroll pr-1">
+              <table class="w-full text-left text-[11px] sm:text-xs">
+                <thead class="text-[9px] sm:text-[10px] uppercase font-extrabold text-white/40 sticky top-0 bg-slate-900/90 border-b border-white/10">
+                  <tr><th class="py-1.5 pl-2">Rank</th><th class="py-1.5">Flyer</th><th class="py-1.5 text-right pr-2">Score</th></tr>
+                </thead>
+                <tbody id="leaderboardRows" class="divide-y divide-white/5"></tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -277,7 +291,7 @@
               <li class="flex items-start gap-2"><span class="text-emerald-400 font-bold">•</span><span><strong>Controls:</strong> Click/tap canvas or press <strong>SPACE / Up Arrow</strong> to flap.</span></li>
               <li class="flex items-start gap-2"><span class="text-emerald-400 font-bold">•</span><span><strong>Pass Gaps:</strong> Pass obstacle pillars safely to earn <strong>+1 Point</strong>.</span></li>
               <li class="flex items-start gap-2"><span class="text-pink-400 font-bold">•</span><span><strong>Worm Power-Up:</strong> Pink worms spawn every 2 passes. Collect them to get <strong>+1 EXTRA POINT</strong>!</span></li>
-              <li class="flex items-start gap-2"><span class="text-amber-300 font-bold">•</span><span><strong>Global Leaderboard:</strong> Dynamic cloud score synchronization with offline fallback storage!</span></li>
+              <li class="flex items-start gap-2"><span class="text-amber-300 font-bold">•</span><span><strong>Global Leaderboard:</strong> Permanent scores are synchronized across all devices worldwide via Google Cloud Firestore (with offline fallback)!</span></li>
             </ul>
             <button id="closeHowBtn" class="w-full py-2.5 sm:py-3 rounded-xl font-black bg-emerald-500 text-slate-950 hover:bg-emerald-400 transition-all text-xs sm:text-sm">Got it! Let's Fly</button>
           </div>
@@ -309,7 +323,7 @@
 
 <script>
 (() => {
-  // Firebase configuration
+  // Firebase Configuration & Initialization with Error Handling
   const firebaseConfig = {
     apiKey: "AIzaSyDFx15qAqYZfwAYt-BdWsuZwcfK2Soxofs",
     authDomain: "hennessy-f5cdb.firebaseapp.com",
@@ -322,18 +336,27 @@
 
   let db = null;
   try {
-    if (typeof firebase !== 'undefined' && firebase.initializeApp) {
+    if (!firebase.apps.length) {
       firebase.initializeApp(firebaseConfig);
-      db = firebase.firestore();
     }
-  } catch (e) {
-    console.warn("Firestore initialized in offline fallback mode:", e);
+    db = firebase.firestore();
+  } catch (err) {
+    console.warn("Firebase initialization failed. Running in offline localStorage mode.", err);
   }
 
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
-  const W = canvas.width;
-  const H = canvas.height;
+  const W = 960;
+  const H = 540;
+
+  // High-DPI canvas crisp rendering adjustment
+  function setupCanvasDPI() {
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    ctx.scale(dpr, dpr);
+  }
+  setupCanvasDPI();
 
   const scoreDisplay = document.getElementById('scoreDisplay');
   const bestDisplay = document.getElementById('bestDisplay');
@@ -348,8 +371,6 @@
   const howModal = document.getElementById('howModal');
   const highscoreModal = document.getElementById('highscoreModal');
   const leaderboardModal = document.getElementById('leaderboardModal');
-  const leaderboardLoading = document.getElementById('leaderboardLoading');
-  const leaderboardContent = document.getElementById('leaderboardContent');
   
   const modalWorldName = document.getElementById('modalWorldName');
   const modalCharAvatar = document.getElementById('modalCharAvatar');
@@ -361,6 +382,7 @@
   const hsScoreDisplay = document.getElementById('hsScoreDisplay');
   const playerNameInput = document.getElementById('playerNameInput');
   const nameInputError = document.getElementById('nameInputError');
+  const leaderboardLoading = document.getElementById('leaderboardLoading');
 
   const CHARACTERS = {
     parrot: { id: 'parrot', title: 'Parrot', worldName: 'Meadow World', badgeIcon: '🦜', accentColor: '#10b981', skyGradient: ['#38bdf8', '#818cf8', '#a7f3d0'], pipeColor: '#15803d', pipeCap: '#22c55e', hillsColor: '#166534', groundColor: '#14532d' },
@@ -375,104 +397,82 @@
   let gapPassCount = 0;
   let wormsEaten = 0;
   let soundEnabled = true;
-  let lastSubmittedScoreId = null;
 
   let leaderboardCache = { parrot: [], eagle: [], red: [] };
 
-  function sanitizeInput(str) {
-    const temp = document.createElement('div');
-    temp.textContent = str || '';
-    return temp.innerHTML.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+  function getLocalStorageKey(worldKey) {
+    return `feathered_flyers_lb_${worldKey}`;
   }
 
-  function getLocalLeaderboard(worldKey) {
-    try {
-      const data = localStorage.getItem(`ff_lb_${worldKey}`);
-      return data ? JSON.parse(data) : [];
-    } catch (e) {
-      return [];
+  function getLocalFallbackLeaderboard() {
+    const list = [];
+    for (let i = 1; i <= 100; i++) {
+      list.push({ name: '---', score: 0, date: '---' });
     }
+    return list;
   }
 
-  function saveLocalLeaderboard(worldKey, list) {
-    try {
-      localStorage.setItem(`ff_lb_${worldKey}`, JSON.stringify(list));
-    } catch (e) {}
-  }
-
-  async function fetchLeaderboards(worldKey = activeCharKey) {
-    leaderboardLoading.classList.remove('hidden');
-    leaderboardContent.classList.add('hidden');
-    
-    if (db) {
+  // Refactored Firestore Fetching using Subcollections (`leaderboards/{worldKey}/scores`)
+  async function fetchLeaderboards() {
+    for (const key of ['parrot', 'eagle', 'red']) {
       try {
-        const snapshot = await db.collection('leaderboards')
-                                 .doc(worldKey)
-                                 .collection('scores')
-                                 .orderBy('score', 'desc')
-                                 .limit(100)
-                                 .get();
-
-        const docs = [];
-        snapshot.forEach(doc => {
-          docs.push({ id: doc.id, ...doc.data() });
-        });
-
-        if (docs.length > 0) {
-          leaderboardCache[worldKey] = docs;
-          saveLocalLeaderboard(worldKey, docs);
+        if (!db) throw new Error("Firestore offline");
+        const snapshot = await db.collection('leaderboards').doc(key).collection('scores').orderBy('score', 'desc').limit(100).get();
+        if (!snapshot.empty) {
+          const scoresList = [];
+          snapshot.forEach(doc => scoresList.push(doc.data()));
+          leaderboardCache[key] = scoresList;
+          try { localStorage.setItem(getLocalStorageKey(key), JSON.stringify(scoresList)); } catch (e) {}
         } else {
-          leaderboardCache[worldKey] = getLocalLeaderboard(worldKey);
+          // Check local storage or generate initial list
+          const localData = localStorage.getItem(getLocalStorageKey(key));
+          leaderboardCache[key] = localData ? JSON.parse(localData) : getLocalFallbackLeaderboard();
         }
       } catch (e) {
-        console.warn('Firestore fetch failed, relying on local storage:', e);
-        leaderboardCache[worldKey] = getLocalLeaderboard(worldKey);
+        console.warn(`Cloud fetch failed for ${key}, using local cache/fallback.`, e);
+        try {
+          const localData = localStorage.getItem(getLocalStorageKey(key));
+          leaderboardCache[key] = localData ? JSON.parse(localData) : getLocalFallbackLeaderboard();
+        } catch (err) {
+          leaderboardCache[key] = getLocalFallbackLeaderboard();
+        }
       }
-    } else {
-      leaderboardCache[worldKey] = getLocalLeaderboard(worldKey);
     }
-
-    leaderboardLoading.classList.add('hidden');
-    leaderboardContent.classList.remove('hidden');
     bestDisplay.textContent = getBestScore(activeCharKey);
   }
 
   function getLeaderboard(worldKey) {
-    return leaderboardCache[worldKey] || getLocalLeaderboard(worldKey);
+    return leaderboardCache[worldKey] || getLocalFallbackLeaderboard();
   }
 
-  async function addScoreToCloud(worldKey, playerName, playerScore) {
-    const entry = {
+  // Refactored Firestore Saving using individual documents in subcollection
+  async function saveScoreToCloud(worldKey, playerName, playerScore) {
+    const newEntry = {
       name: playerName,
       score: playerScore,
-      timestamp: Date.now(),
       date: new Date().toISOString().split('T')[0]
     };
 
-    let docId = 'local_' + Date.now();
+    // Update local cache & localStorage immediately
+    const currentList = getLeaderboard(worldKey);
+    currentList.push(newEntry);
+    currentList.sort((a, b) => b.score - a.score);
+    const top100 = currentList.slice(0, 100);
+    leaderboardCache[worldKey] = top100;
 
+    try {
+      localStorage.setItem(getLocalStorageKey(worldKey), JSON.stringify(top100));
+    } catch (e) {}
+
+    // Attempt cloud write asynchronously without blocking UI
     if (db) {
       try {
-        const docRef = await db.collection('leaderboards')
-                               .doc(worldKey)
-                               .collection('scores')
-                               .add(entry);
-        docId = docRef.id;
+        const scoreId = `${playerName}_${Date.now()}`;
+        await db.collection('leaderboards').doc(worldKey).collection('scores').doc(scoreId).set(newEntry);
       } catch (e) {
-        console.error("Cloud score write error:", e);
+        console.error("Failed to sync score to cloud database, saved locally.", e);
       }
     }
-
-    lastSubmittedScoreId = docId;
-
-    // Update Local Cache
-    let list = getLeaderboard(worldKey);
-    list.push({ id: docId, ...entry });
-    list.sort((a, b) => b.score - a.score);
-    list = list.slice(0, 100);
-    
-    leaderboardCache[worldKey] = list;
-    saveLocalLeaderboard(worldKey, list);
   }
 
   function isTop100Score(worldKey, testScore) {
@@ -482,13 +482,14 @@
     return testScore > lb[lb.length - 1].score;
   }
 
-  // Web Audio Context Unlock & Synthesis
+  // Audio Context Autoplay Policy Unlock
   let audioCtx = null;
   function initAudioContext() {
     if (!audioCtx) {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (AudioContextClass) audioCtx = new AudioContextClass();
     }
-    if (audioCtx.state === 'suspended') {
+    if (audioCtx && audioCtx.state === 'suspended') {
       audioCtx.resume();
     }
   }
@@ -498,53 +499,50 @@
     try {
       initAudioContext();
       if (!audioCtx) return;
-
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.connect(gain);
       gain.connect(audioCtx.destination);
 
-      const now = audioCtx.currentTime;
-
       if (type === 'flap') {
-        osc.frequency.setValueAtTime(320, now);
-        osc.frequency.exponentialRampToValueAtTime(700, now + 0.08);
-        gain.gain.setValueAtTime(0.12, now);
-        gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
-        osc.start(now); osc.stop(now + 0.08);
+        osc.frequency.setValueAtTime(320, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(700, audioCtx.currentTime + 0.08);
+        gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.08);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.08);
       } else if (type === 'worm') {
         osc.type = 'triangle';
-        osc.frequency.setValueAtTime(523.25, now);
-        osc.frequency.setValueAtTime(659.25, now + 0.07);
-        osc.frequency.setValueAtTime(783.99, now + 0.14);
-        osc.frequency.setValueAtTime(1046.50, now + 0.22);
-        gain.gain.setValueAtTime(0.2, now);
-        gain.gain.linearRampToValueAtTime(0.01, now + 0.32);
-        osc.start(now); osc.stop(now + 0.32);
+        osc.frequency.setValueAtTime(523.25, audioCtx.currentTime);
+        osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.07);
+        osc.frequency.setValueAtTime(783.99, audioCtx.currentTime + 0.14);
+        osc.frequency.setValueAtTime(1046.50, audioCtx.currentTime + 0.22);
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.32);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.32);
       } else if (type === 'hit') {
         osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(160, now);
-        osc.frequency.exponentialRampToValueAtTime(35, now + 0.25);
-        gain.gain.setValueAtTime(0.25, now);
-        gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
-        osc.start(now); osc.stop(now + 0.25);
+        osc.frequency.setValueAtTime(160, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(35, audioCtx.currentTime + 0.25);
+        gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.25);
       } else if (type === 'triumph') {
+        // High score triumph chime
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(440, now);
-        osc.frequency.setValueAtTime(554.37, now + 0.1);
-        osc.frequency.setValueAtTime(659.25, now + 0.2);
-        osc.frequency.setValueAtTime(880, now + 0.3);
-        gain.gain.setValueAtTime(0.18, now);
-        gain.gain.linearRampToValueAtTime(0.01, now + 0.5);
-        osc.start(now); osc.stop(now + 0.5);
+        osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+        osc.frequency.setValueAtTime(554.37, audioCtx.currentTime + 0.1);
+        osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.2);
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.3);
+        gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.6);
       }
     } catch (e) {}
   }
 
-  let flyer = { x: 180, y: 240, vy: 0, r: 20, rotation: 0 };
+  let flyer = { x: 180, y: 240, vy: 0, radiusX: 18, radiusY: 13, rotation: 0 };
   let obstacles = [], worms = [], particles = [], floatTexts = [];
   let frame = 0, speed = 3.5, spawnTimer = 0, bgStars = [];
-  let screenShake = 0;
 
   function getBestScore(charKey) {
     const lb = getLeaderboard(charKey);
@@ -580,9 +578,8 @@
     frame = 0;
     speed = 3.5;
     spawnTimer = 0;
-    screenShake = 0;
 
-    flyer = { x: 180, y: 240, vy: 0, r: 20, rotation: 0 };
+    flyer = { x: 180, y: 240, vy: 0, radiusX: 18, radiusY: 13, rotation: 0 };
     obstacles = [];
     worms = [];
     particles = [];
@@ -613,16 +610,24 @@
 
   function flap() {
     if (state === 'playing') {
+      initAudioContext();
       flyer.vy = -6.8;
       playSound('flap');
-      createPuff(flyer.x - 12, flyer.y + 4, '#ffffff', 5);
+      createPuff(flyer.x - 10, flyer.y + 6, '#ffffff', 5);
     }
+  }
+
+  function triggerScreenShake() {
+    const box = document.getElementById('canvasBox');
+    box.classList.remove('shake');
+    void box.offsetWidth; // trigger reflow
+    box.classList.add('shake');
   }
 
   function endGame() {
     state = 'over';
-    screenShake = 18;
     playSound('hit');
+    triggerScreenShake();
 
     finalScore.textContent = score;
     finalBest.textContent = getBestScore(activeCharKey);
@@ -630,7 +635,7 @@
     bestDisplay.textContent = getBestScore(activeCharKey);
 
     if (isTop100Score(activeCharKey, score)) {
-      setTimeout(() => playSound('triumph'), 350);
+      playSound('triumph');
       hsScoreDisplay.textContent = score;
       playerNameInput.value = '';
       nameInputError.classList.add('hidden');
@@ -642,7 +647,7 @@
 
   function createPuff(x, y, color, n = 6) {
     for (let i = 0; i < n; i++) {
-      particles.push({ x, y, vx: (Math.random() - 0.5) * 3 - 1, vy: (Math.random() - 0.5) * 3, life: 20 + Math.random() * 10, color });
+      particles.push({ x, y, vx: (Math.random() - 0.5) * 3.5, vy: (Math.random() - 0.5) * 3.5, life: 25 + Math.random() * 15, color });
     }
   }
 
@@ -769,8 +774,7 @@
   }
 
   function spawnObstacle() {
-    // Dynamic Gap scaling based on player score
-    const gap = Math.max(125, 160 - Math.floor(score / 5) * 2);
+    const gap = 155;
     const topH = 60 + Math.random() * (H - gap - 120);
     const x = W + 40, w = 75;
     obstacles.push({ x, w, topH, gap, passed: false });
@@ -780,27 +784,47 @@
     }
   }
 
+  // Precise Elliptical Collision Detection against Rectangles
+  function checkCollision(obs) {
+    const cx = flyer.x;
+    const cy = flyer.y;
+    const rx = flyer.radiusX;
+    const ry = flyer.radiusY;
+
+    // Check top obstacle box
+    const topClosestX = Math.max(obs.x, Math.min(cx, obs.x + obs.w));
+    const topClosestY = Math.max(0, Math.min(cy, obs.topH));
+    const topDx = (cx - topClosestX) / rx;
+    const topDy = (cy - topClosestY) / ry;
+    if ((topDx * topDx + topDy * topDy) <= 1) return true;
+
+    // Check bottom obstacle box
+    const botY = obs.topH + obs.gap;
+    const botH = H - botY;
+    const botClosestX = Math.max(obs.x, Math.min(cx, obs.x + obs.w));
+    const botClosestY = Math.max(botY, Math.min(cy, botY + botH));
+    const botDx = (cx - botClosestX) / rx;
+    const botDy = (cy - botClosestY) / ry;
+    if ((botDx * botDx + botDy * botDy) <= 1) return true;
+
+    return false;
+  }
+
   function update() {
     frame++;
     if (state === 'playing') {
-      speed = Math.min(5.8, 3.5 + score * 0.015);
+      speed = Math.min(5.5, 3.5 + score * 0.012);
       flyer.vy += 0.33;
       flyer.y += flyer.vy;
 
-      // Subtle Flying Particle Trail
+      // Particle Trail behind the bird
       if (frame % 3 === 0) {
-        particles.push({
-          x: flyer.x - 14,
-          y: flyer.y + (Math.random() - 0.5) * 10,
-          vx: -speed * 0.4,
-          vy: (Math.random() - 0.5) * 0.8,
-          life: 14,
-          color: CHARACTERS[activeCharKey].accentColor
-        });
+        let trailColor = activeCharKey === 'parrot' ? '#22c55e' : (activeCharKey === 'eagle' ? '#fbbf24' : '#ef4444');
+        createPuff(flyer.x - 12, flyer.y, trailColor, 2);
       }
 
       spawnTimer++;
-      if (spawnTimer > Math.max(68, 105 - score * 0.2)) {
+      if (spawnTimer > Math.max(70, 105 - score * 0.2)) {
         spawnObstacle();
         spawnTimer = 0;
       }
@@ -813,19 +837,14 @@
           scoreDisplay.textContent = score;
           addFloatText(flyer.x, flyer.y - 20, '+1', '#6ee7b7');
         }
-
-        // Precise Circular Collision Box (r * 0.65)
-        const fx = flyer.x, fy = flyer.y, fr = flyer.r * 0.65;
-        if (fx + fr > o.x && fx - fr < o.x + o.w) {
-          if (fy - fr < o.topH || fy + fr > o.topH + o.gap) {
-            endGame();
-          }
+        if (checkCollision(o)) {
+          endGame();
         }
       });
 
       worms.forEach(w => {
         w.x -= speed;
-        if (!w.taken && Math.hypot(flyer.x - w.x, flyer.y - w.y) < flyer.r + w.r) {
+        if (!w.taken && Math.hypot(flyer.x - w.x, flyer.y - w.y) < flyer.radiusX + w.r) {
           w.taken = true;
           wormsEaten++;
           score += 1;
@@ -840,9 +859,7 @@
 
       obstacles = obstacles.filter(o => o.x + o.w > -40);
       worms = worms.filter(w => w.x > -40 && !w.taken);
-      if (flyer.y - flyer.r * 0.5 < 0 || flyer.y + flyer.r * 0.5 > H - 30) {
-        endGame();
-      }
+      if (flyer.y < 0 || flyer.y > H - 30) endGame();
     } else if (state === 'menu') {
       flyer.y = 240 + Math.sin(frame * 0.05) * 12;
       flyer.vy = 0;
@@ -855,15 +872,6 @@
   }
 
   function draw() {
-    ctx.save();
-    if (screenShake > 0) {
-      const shakeX = (Math.random() - 0.5) * screenShake;
-      const shakeY = (Math.random() - 0.5) * screenShake;
-      ctx.translate(shakeX, shakeY);
-      screenShake *= 0.85;
-      if (screenShake < 0.5) screenShake = 0;
-    }
-
     drawBackground();
     if (state === 'playing' || state === 'over') {
       obstacles.forEach(o => {
@@ -892,7 +900,6 @@
       ctx.fillText(ft.text, ft.x, ft.y);
     });
     ctx.globalAlpha = 1;
-    ctx.restore();
   }
 
   function loop() {
@@ -911,9 +918,7 @@
         btn.className = 'flex-1 py-1.5 sm:py-2 rounded-lg text-[11px] sm:text-xs font-bold transition-all text-white/70 hover:bg-white/10';
       }
     });
-    fetchLeaderboards(tabKey).then(() => {
-      renderLeaderboardContent();
-    });
+    renderLeaderboardContent();
   };
 
   function renderLeaderboardContent() {
@@ -928,11 +933,10 @@
 
     for (let i = 0; i < 3; i++) {
       const item = list[i] || { name: '---', score: 0 };
-      const isUser = item.id && item.id === lastSubmittedScoreId;
       top3Container.innerHTML += `
-        <div class="border ${colors[i]} rounded-xl sm:rounded-2xl p-2 text-center flex flex-col justify-center ${isUser ? 'ring-2 ring-amber-400 shadow-lg' : ''}">
+        <div class="border ${colors[i]} rounded-xl sm:rounded-2xl p-2 text-center flex flex-col justify-center">
           <div class="text-[9px] sm:text-[10px] font-black uppercase tracking-wider">${medals[i]}</div>
-          <div class="text-xs sm:text-sm font-black truncate my-0.5">${sanitizeInput(item.name)}</div>
+          <div class="text-xs sm:text-sm font-black truncate my-0.5">${item.name}</div>
           <div class="text-base sm:text-lg font-black">${item.score}</div>
         </div>
       `;
@@ -940,12 +944,11 @@
 
     for (let i = 3; i < list.length; i++) {
       const item = list[i] || { name: '---', score: 0 };
-      const isUser = item.id && item.id === lastSubmittedScoreId;
       const tr = document.createElement('tr');
-      tr.className = `hover:bg-white/5 transition-colors ${isUser ? 'bg-amber-400/20 font-bold border-l-2 border-amber-400' : ''}`;
+      tr.className = 'hover:bg-white/5 transition-colors';
       tr.innerHTML = `
         <td class="py-1.5 pl-2 font-black text-white/50">#${i + 1}</td>
-        <td class="py-1.5 font-bold text-white tracking-wide">${sanitizeInput(item.name)} ${isUser ? '⭐' : ''}</td>
+        <td class="py-1.5 font-bold text-white tracking-wide">${item.name}</td>
         <td class="py-1.5 text-right pr-2 font-black text-amber-300">${item.score}</td>
       `;
       rowsContainer.appendChild(tr);
@@ -953,48 +956,50 @@
   }
 
   async function showLeaderboardModal(worldKey = activeCharKey) {
+    leaderboardLoading.classList.remove('hidden');
     leaderboardModal.classList.remove('hidden');
     setLeaderboardTab(worldKey);
+    
+    await fetchLeaderboards();
+    leaderboardLoading.classList.add('hidden');
+    renderLeaderboardContent();
   }
 
+  // Input Sanitization & Validation for Player Name
   document.getElementById('submitScoreBtn').addEventListener('click', async () => {
-    const rawVal = playerNameInput.value;
-    const cleanVal = sanitizeInput(rawVal);
-    if (cleanVal.length < 3 || cleanVal.length > 6) {
+    let val = playerNameInput.value.trim().toUpperCase();
+    // Strip special characters / HTML tags, keep only A-Z and 0-9
+    val = val.replace(/[^A-Z0-9]/g, '');
+    playerNameInput.value = val;
+
+    if (val.length < 3 || val.length > 6) {
       nameInputError.classList.remove('hidden');
       return;
     }
     nameInputError.classList.add('hidden');
     
-    // Non-blocking save
-    addScoreToCloud(activeCharKey, cleanVal, score);
+    await saveScoreToCloud(activeCharKey, val, score);
     bestDisplay.textContent = getBestScore(activeCharKey);
 
     highscoreModal.classList.add('hidden');
     overModal.classList.remove('hidden');
   });
 
-  // Modal Guard helper
-  function areModalsOpen() {
-    return !highscoreModal.classList.contains('hidden') ||
-           !leaderboardModal.classList.contains('hidden') ||
-           !howModal.classList.contains('hidden');
-  }
-
   canvas.addEventListener('pointerdown', e => { 
     e.preventDefault(); 
-    initAudioContext();
-    if (!areModalsOpen() && state === 'playing') flap(); 
+    if (state === 'playing') flap(); 
   });
 
+  // Modal State Guard: Prevent space/arrow triggers when input fields or specific modals are active
   window.addEventListener('keydown', e => {
-    initAudioContext();
-    if (areModalsOpen()) return;
+    if (document.activeElement === playerNameInput) return;
+    if (!highscoreModal.classList.contains('hidden') || !leaderboardModal.classList.contains('hidden') || !howModal.classList.contains('hidden')) return;
+
     if (e.code === 'Space' || e.code === 'ArrowUp') {
       e.preventDefault();
       if (state === 'playing') flap();
-      else if (state === 'menu') startGame();
-      else if (state === 'over' && highscoreModal.classList.contains('hidden')) startGame();
+      else if (state === 'menu' && startModal.classList.contains('hidden') === false) startGame();
+      else if (state === 'over' && overModal.classList.contains('hidden') === false) startGame();
     }
   });
 
@@ -1020,7 +1025,7 @@
   document.getElementById('closeHowBtn').addEventListener('click', () => howModal.classList.add('hidden'));
 
   switchCharacter('parrot');
-  fetchLeaderboards('parrot').then(() => {
+  fetchLeaderboards().then(() => {
     resetGame();
   });
   loop();
