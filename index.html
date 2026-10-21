@@ -1,321 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#10b981">
-<title>Feathered Flyers — Multi-World Flight</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<!-- Firebase Cloud Database SDKs (Compat v10) -->
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800;900&display=swap');
-
-  * { 
-    box-sizing: border-box; 
-    font-family: 'Plus Jakarta Sans', sans-serif; 
-    user-select: none; 
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  :root {
-    --accent-color: #10b981;
-    --accent-glow: rgba(16, 185, 129, 0.4);
-    --panel-bg: rgba(15, 23, 42, 0.85);
-    --panel-border: rgba(255, 255, 255, 0.22);
-  }
-
-  body {
-    background: #090d16;
-    min-height: 100vh;
-    min-height: 100dvh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    overflow-x: hidden;
-    margin: 0;
-    padding: clamp(4px, 2vw, 16px);
-    color: #ffffff;
-  }
-
-  .game-wrapper {
-    width: 100%;
-    max-width: min(100%, 1100px);
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .glass-card {
-    background: var(--panel-bg);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid var(--panel-border);
-    box-shadow: 0 12px 32px 0 rgba(0, 0, 0, 0.35);
-  }
-
-  .glass-btn {
-    background: rgba(255, 255, 255, 0.12);
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    backdrop-filter: blur(10px);
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-  .glass-btn:hover {
-    background: rgba(255, 255, 255, 0.25);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px var(--accent-glow);
-  }
-  .glass-btn:active {
-    transform: translateY(1px);
-  }
-
-  .char-card {
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    border: 2px solid transparent;
-  }
-  .char-card.active {
-    border-color: var(--accent-color);
-    box-shadow: 0 0 25px var(--accent-glow);
-    transform: scale(1.04);
-    background: rgba(255, 255, 255, 0.22);
-  }
-
-  .canvas-container {
-    position: relative;
-    width: 100%;
-    overflow: hidden;
-    border-radius: clamp(12px, 2vw, 24px);
-    background: #000;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
-
-  /* Aspect Ratio & Rendering Fix: object-fit contain prevents stretching */
-  canvas {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    touch-action: manipulation;
-    display: block;
-  }
-
-  @keyframes screenShake {
-    0% { transform: translate(0, 0) rotate(0deg); }
-    20% { transform: translate(-8px, 5px) rotate(-1deg); }
-    40% { transform: translate(8px, -5px) rotate(1deg); }
-    60% { transform: translate(-5px, -3px) rotate(-0.5deg); }
-    80% { transform: translate(5px, 3px) rotate(0.5deg); }
-    100% { transform: translate(0, 0) rotate(0deg); }
-  }
-  .shake { animation: screenShake 0.4s cubic-bezier(.36,.07,.19,.97) both; }
-
-  .custom-scroll::-webkit-scrollbar { width: 6px; }
-  .custom-scroll::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); border-radius: 8px; }
-  .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.25); border-radius: 8px; }
-
-  @keyframes pulseGlow {
-    0%, 100% { opacity: 0.85; transform: scale(1); }
-    50% { opacity: 1; transform: scale(1.12); }
-  }
-  .pulse-glow { animation: pulseGlow 1.5s infinite ease-in-out; }
-
-  @keyframes floatWorm {
-    0%, 100% { transform: translateY(0px) rotate(-4deg); }
-    50% { transform: translateY(-7px) rotate(4deg); }
-  }
-  .float-worm { animation: floatWorm 2s infinite ease-in-out; }
-
-  @keyframes creditGlow {
-    0%, 100% { opacity: 0.75; text-shadow: 0 0 4px rgba(16, 185, 129, 0.3); }
-    50% { opacity: 1; text-shadow: 0 0 12px rgba(16, 185, 129, 0.8); }
-  }
-  .credit-anim { animation: creditGlow 3s infinite ease-in-out; }
-
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .spinner {
-    width: 32px;
-    height: 32px;
-    border: 3px solid rgba(255, 255, 255, 0.2);
-    border-top-color: var(--accent-color);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-</style>
-</head>
-<body>
-
-  <div class="game-wrapper">
-
-    <!-- Header Stats Bar -->
-    <header class="glass-card rounded-2xl p-2.5 sm:p-4 flex flex-wrap items-center justify-between gap-2.5 w-full">
-      <div class="flex items-center gap-2 sm:gap-3">
-        <div id="worldBadgeIcon" class="w-9 h-9 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center text-xl sm:text-3xl bg-white/10 shadow-inner">🦜</div>
-        <div>
-          <h1 class="text-sm sm:text-xl font-black tracking-tight flex items-center gap-2">
-            <span id="gameTitle">Parrot</span>
-            <span id="worldTitleBadge" class="text-[9px] sm:text-xs px-2 py-0.5 rounded-full bg-emerald-500/30 border border-emerald-400/50 font-bold text-emerald-200">Meadow World</span>
-          </h1>
-          <p class="text-[9px] sm:text-xs text-white/70 hidden sm:block">Tap screen or press Space to flap! Collect worms for extra points.</p>
-        </div>
-      </div>
-
-      <div class="flex items-center gap-3 sm:gap-6 ml-auto">
-        <div class="text-right">
-          <div class="text-[8px] sm:text-[10px] uppercase font-extrabold tracking-wider text-white/50">Score</div>
-          <div class="text-lg sm:text-3xl font-black text-amber-300 flex items-center justify-end gap-1.5">
-            <span id="scoreDisplay">0</span>
-            <span id="multiplierBadge" class="text-[9px] sm:text-xs bg-pink-500 text-white px-1.5 sm:px-2 py-0.5 rounded-full font-black hidden pulse-glow shadow-lg shadow-pink-500/50">+1</span>
-          </div>
-        </div>
-        <div class="h-5 sm:h-8 w-[1px] bg-white/20"></div>
-        <div class="text-right">
-          <div class="text-[8px] sm:text-[10px] uppercase font-extrabold tracking-wider text-white/50">World Best</div>
-          <div id="bestDisplay" class="text-base sm:text-2xl font-black text-white">0</div>
-        </div>
-      </div>
-    </header>
-
-    <!-- Main Game Section -->
-    <div class="flex flex-col lg:flex-row gap-3 items-center justify-center w-full">
-      
-      <!-- Canvas Wrapper -->
-      <div id="canvasBox" class="canvas-container glass-card rounded-2xl sm:rounded-3xl shadow-2xl relative flex-1 w-full">
-        <canvas id="gameCanvas"></canvas>
-
-        <!-- Start Overlay -->
-        <div id="startModal" class="absolute inset-0 glass-card bg-slate-950/80 flex items-center justify-center p-3 sm:p-6 transition-opacity duration-300 z-10">
-          <div class="max-w-md w-full bg-slate-900/95 border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 text-center backdrop-blur-xl shadow-2xl">
-            <div id="modalCharAvatar" class="text-4xl sm:text-6xl mb-1 float-worm inline-block">🦜</div>
-            <h2 id="modalWorldName" class="text-lg sm:text-2xl font-black text-white">Meadow World</h2>
-            <p class="text-[10px] sm:text-xs text-slate-300 mt-0.5 mb-3">Select a flyer! Tap canvas or press Space to fly.</p>
-            <div class="text-[10px] sm:text-xs font-bold text-white/70 mb-2 text-left uppercase tracking-wider">Choose Flyer & World:</div>
-            
-            <div class="grid grid-cols-3 gap-2 mb-4">
-              <button onclick="switchCharacter('parrot')" id="btn-parrot" class="char-card active bg-white/10 p-2 sm:p-3 rounded-xl flex flex-col items-center gap-1">
-                <span class="text-2xl sm:text-3xl">🦜</span><span class="text-[10px] sm:text-xs font-black">Parrot</span><span class="text-[8px] sm:text-[10px] text-emerald-300 font-bold">Meadow</span>
-              </button>
-              <button onclick="switchCharacter('eagle')" id="btn-eagle" class="char-card bg-white/10 p-2 sm:p-3 rounded-xl flex flex-col items-center gap-1">
-                <span class="text-2xl sm:text-3xl">🦅</span><span class="text-[10px] sm:text-xs font-black">Eagle</span><span class="text-[8px] sm:text-[10px] text-purple-300 font-bold">Enchanted</span>
-              </button>
-              <button onclick="switchCharacter('red')" id="btn-red" class="char-card bg-white/10 p-2 sm:p-3 rounded-xl flex flex-col items-center gap-1">
-                <span class="text-2xl sm:text-3xl">🔴</span><span class="text-[10px] sm:text-xs font-black">Red</span><span class="text-[8px] sm:text-[10px] text-cyan-300 font-bold">Cyber City</span>
-              </button>
-            </div>
-
-            <button id="startBtn" class="w-full py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-sm sm:text-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-lg shadow-emerald-500/40 transition-all">
-              START FLYING 🚀
-            </button>
-          </div>
-        </div>
-
-        <!-- Top 100 Name Input Modal -->
-        <div id="highscoreModal" class="absolute inset-0 glass-card bg-slate-950/90 flex items-center justify-center p-3 sm:p-6 hidden z-20">
-          <div class="max-w-md w-full bg-slate-900/95 border border-amber-400/50 rounded-2xl sm:rounded-3xl p-4 sm:p-6 text-center backdrop-blur-xl shadow-2xl">
-            <div class="text-3xl sm:text-5xl mb-1">🏆</div>
-            <h2 class="text-lg sm:text-2xl font-black text-amber-300">TOP 100 HIGH SCORE!</h2>
-            <p class="text-slate-300 text-[10px] sm:text-xs mt-0.5 mb-2">You made it onto the Leaderboard!</p>
-            <div class="bg-white/5 p-2.5 rounded-xl border border-white/10 mb-3">
-              <div class="text-[8px] sm:text-[10px] uppercase font-bold text-white/50">Your Score</div>
-              <div id="hsScoreDisplay" class="text-xl sm:text-3xl font-black text-amber-300">0</div>
-            </div>
-            <div class="text-left mb-3">
-              <label class="block text-[10px] sm:text-xs font-bold text-white/70 mb-1">Enter Flyer Name (3-6 characters):</label>
-              <input id="playerNameInput" type="text" maxlength="6" placeholder="FLYER" 
-                     class="w-full px-3 py-2.5 rounded-xl bg-slate-800 text-white font-black text-center text-base sm:text-lg tracking-wider border border-white/20 focus:border-amber-400 focus:outline-none uppercase">
-              <p id="nameInputError" class="text-red-400 text-[10px] font-bold mt-1 hidden text-center">Name must be 3-6 alphanumeric characters!</p>
-            </div>
-            <button id="submitScoreBtn" class="w-full py-3 rounded-xl font-extrabold bg-amber-400 hover:bg-amber-300 text-slate-950 shadow-lg transition-all text-xs sm:text-sm">
-              Save Score & Play Again ↻
-            </button>
-          </div>
-        </div>
-
-        <!-- Game Over Modal -->
-        <div id="overModal" class="absolute inset-0 glass-card bg-slate-950/85 flex items-center justify-center p-3 sm:p-6 hidden z-20">
-          <div class="max-w-md w-full bg-slate-900/95 border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 text-center backdrop-blur-xl shadow-2xl">
-            <div class="text-3xl sm:text-5xl mb-1">💥</div>
-            <h2 class="text-xl sm:text-3xl font-black text-red-400">Bonk! Crash!</h2>
-            <p class="text-slate-300 text-[10px] sm:text-xs mt-0.5">You ran into an obstacle!</p>
-            <div class="grid grid-cols-3 gap-2 my-3 bg-white/5 p-2.5 rounded-xl border border-white/10">
-              <div><div class="text-[8px] sm:text-[10px] uppercase font-bold text-white/50">Score</div><div id="finalScore" class="text-lg sm:text-2xl font-black text-amber-300">0</div></div>
-              <div><div class="text-[8px] sm:text-[10px] uppercase font-bold text-white/50">World Best</div><div id="finalBest" class="text-lg sm:text-2xl font-black text-white">0</div></div>
-              <div><div class="text-[8px] sm:text-[10px] uppercase font-bold text-white/50">Worms</div><div id="finalWorms" class="text-lg sm:text-2xl font-black text-pink-400">0</div></div>
-            </div>
-            <div class="flex gap-2">
-              <button id="againBtn" class="flex-1 py-2.5 sm:py-3 rounded-xl font-extrabold bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-lg text-xs sm:text-sm">Fly Again ↻</button>
-              <button id="overLeaderboardBtn" class="py-2.5 px-3 rounded-xl font-extrabold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-400/30 text-xs sm:text-sm">🏆 Top 100</button>
-              <button id="menuBtn" class="py-2.5 px-3 rounded-xl font-extrabold bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs sm:text-sm">Menu</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Leaderboard Modal -->
-        <div id="leaderboardModal" class="absolute inset-0 glass-card bg-slate-950/90 flex items-center justify-center p-3 sm:p-6 hidden z-30">
-          <div class="max-w-lg w-full max-h-[92%] bg-slate-900/95 border border-white/20 rounded-2xl sm:rounded-3xl p-3 sm:p-5 flex flex-col backdrop-blur-xl shadow-2xl">
-            <div class="flex items-center justify-between mb-2">
-              <h3 class="text-sm sm:text-xl font-black text-amber-300 flex items-center gap-2"><span>🏆</span> Global Leaderboard (Top 100)</h3>
-              <button id="closeLeaderboardBtn" class="text-white/60 hover:text-white font-bold text-lg px-1.5">✕</button>
-            </div>
-            <div class="flex gap-1.5 mb-2 bg-white/5 p-1 rounded-xl">
-              <button onclick="setLeaderboardTab('parrot')" id="tab-parrot" class="flex-1 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all bg-emerald-500 text-slate-950">🦜 Meadow</button>
-              <button onclick="setLeaderboardTab('eagle')" id="tab-eagle" class="flex-1 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all text-white/70 hover:bg-white/10">🦅 Enchanted</button>
-              <button onclick="setLeaderboardTab('red')" id="tab-red" class="flex-1 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all text-white/70 hover:bg-white/10">🔴 Cyber</button>
-            </div>
-            <div id="top3Container" class="grid grid-cols-3 gap-2 mb-2"></div>
-            <div id="leaderboardLoading" class="flex flex-col items-center justify-center py-10 gap-3 hidden">
-              <div class="spinner"></div>
-              <p class="text-xs text-white/60 font-bold">Loading leaderboard...</p>
-            </div>
-            <div class="flex-1 overflow-y-auto custom-scroll pr-1">
-              <table class="w-full text-left text-[10px] sm:text-xs">
-                <thead class="text-[8px] sm:text-[10px] uppercase font-extrabold text-white/40 sticky top-0 bg-slate-900/90 border-b border-white/10">
-                  <tr><th class="py-1.5 pl-2">Rank</th><th class="py-1.5">Flyer</th><th class="py-1.5 text-right pr-2">Score</th></tr>
-                </thead>
-                <tbody id="leaderboardRows" class="divide-y divide-white/5"></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <!-- Rules Modal -->
-        <div id="howModal" class="absolute inset-0 glass-card bg-slate-950/85 flex items-center justify-center p-3 sm:p-6 hidden z-30">
-          <div class="max-w-md w-full bg-slate-900/95 border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 text-left backdrop-blur-xl shadow-2xl">
-            <h3 class="text-base sm:text-xl font-black text-white mb-2 flex items-center gap-2"><span>🎮</span> How to Play</h3>
-            <ul class="space-y-2 text-xs sm:text-sm text-slate-200 mb-4">
-              <li class="flex items-start gap-2"><span class="text-emerald-400 font-bold">•</span><span><strong>Controls:</strong> Tap canvas or press <strong>SPACE</strong> to flap.</span></li>
-              <li class="flex items-start gap-2"><span class="text-emerald-400 font-bold">•</span><span><strong>Pass Gaps:</strong> Pass obstacle pillars safely to earn <strong>+1 Point</strong>.</span></li>
-              <li class="flex items-start gap-2"><span class="text-pink-400 font-bold">•</span><span><strong>Worm Power-Up:</strong> Collect pink worms for <strong>+1 EXTRA POINT</strong>!</span></li>
-            </ul>
-            <button id="closeHowBtn" class="w-full py-2.5 rounded-xl font-black bg-emerald-500 text-slate-950 hover:bg-emerald-400 transition-all text-xs sm:text-sm">Got it! Let's Fly</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Side Control Dock -->
-      <aside class="glass-card rounded-2xl sm:rounded-3xl p-2.5 sm:p-4 flex flex-row lg:flex-col items-center justify-between gap-2 w-full lg:w-44">
-        <button id="mainLeaderboardBtn" class="flex-1 lg:w-full py-2.5 px-3 rounded-xl glass-btn text-[10px] sm:text-xs font-extrabold text-amber-300 flex items-center justify-center gap-1.5"><span>🏆</span> <span>Leaderboard</span></button>
-        <div class="w-[1px] lg:w-full h-6 lg:h-[1px] bg-white/10"></div>
-        <div class="flex flex-row lg:flex-col gap-2 flex-1 lg:w-full">
-          <button id="soundToggle" class="flex-1 py-2.5 px-2 rounded-xl glass-btn text-[10px] sm:text-xs font-bold flex items-center justify-center gap-1.5"><span id="soundIcon">🔊</span> <span>Audio</span></button>
-          <button id="howToggle" class="flex-1 py-2.5 px-2 rounded-xl glass-btn text-[10px] sm:text-xs font-bold flex items-center justify-center gap-1.5"><span>❓</span> <span>Rules</span></button>
-        </div>
-        <div class="hidden lg:flex w-full flex-col gap-1.5">
-          <div class="w-full bg-black/30 p-2.5 rounded-xl border border-white/10 text-center">
-            <div class="text-[9px] uppercase font-bold text-white/50">Active World</div>
-            <div id="sideWorldName" class="text-[11px] font-black text-emerald-300 mt-0.5">Meadow World</div>
-          </div>
-          <div class="text-center">
-            <span class="text-[10px] font-extrabold tracking-wider text-emerald-400 credit-anim block">By Mark (hennessy)</span>
-          </div>
-        </div>
-      </aside>
-    </div>
-  </div>
-
 <script>
 (() => {
   // Firebase Configuration
@@ -363,7 +45,6 @@
       canvasBox.style.aspectRatio = "9 / 16";
       canvasBox.style.maxHeight = "72vh";
       
-      // Dynamic Physics Tuning for Vertical Flight
       gravity = 0.42;
       flapJump = -8.5;
       baseSpeed = 3.2;
@@ -374,7 +55,6 @@
       canvasBox.style.aspectRatio = "16 / 9";
       canvasBox.style.maxHeight = "80vh";
 
-      // Dynamic Physics Tuning for Widescreen Flight
       gravity = 0.33;
       flapJump = -6.8;
       baseSpeed = 3.5;
@@ -443,14 +123,6 @@
     return `feathered_flyers_lb_${worldKey}`;
   }
 
-  function getLocalFallbackLeaderboard() {
-    const list = [];
-    for (let i = 1; i <= 100; i++) {
-      list.push({ name: '---', score: 0, date: '---' });
-    }
-    return list;
-  }
-
   async function fetchLeaderboards() {
     for (const key of ['parrot', 'eagle', 'red']) {
       try {
@@ -463,14 +135,14 @@
           try { localStorage.setItem(getLocalStorageKey(key), JSON.stringify(scoresList)); } catch(e){}
         } else {
           const localData = localStorage.getItem(getLocalStorageKey(key));
-          leaderboardCache[key] = localData ? JSON.parse(localData) : getLocalFallbackLeaderboard();
+          leaderboardCache[key] = localData ? JSON.parse(localData) : [];
         }
       } catch (e) {
         try {
           const localData = localStorage.getItem(getLocalStorageKey(key));
-          leaderboardCache[key] = localData ? JSON.parse(localData) : getLocalFallbackLeaderboard();
+          leaderboardCache[key] = localData ? JSON.parse(localData) : [];
         } catch (err) {
-          leaderboardCache[key] = getLocalFallbackLeaderboard();
+          leaderboardCache[key] = [];
         }
       }
     }
@@ -478,7 +150,7 @@
   }
 
   function getLeaderboard(worldKey) {
-    return leaderboardCache[worldKey] || getLocalFallbackLeaderboard();
+    return leaderboardCache[worldKey] || [];
   }
 
   async function saveScoreToCloud(worldKey, playerName, playerScore) {
@@ -935,7 +607,7 @@
       if (k === tabKey) {
         btn.className = 'flex-1 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all bg-emerald-500 text-slate-950 shadow';
       } else {
-        btn.className = 'flex-1 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all text-white/70 hover:bg-white/10';
+        btn.className = 'flex-1 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all text-white/70 hover:bg-white/10 shadow-none';
       }
     });
     renderLeaderboardContent();
@@ -951,6 +623,7 @@
     const medals = ['🥇 1st', '🥈 2nd', '🥉 3rd'];
     const colors = ['border-amber-400 bg-amber-400/10 text-amber-300', 'border-slate-300 bg-slate-300/10 text-slate-200', 'border-amber-600 bg-amber-600/10 text-amber-500'];
 
+    // Render Top 3 Cards dynamically based on available records
     for (let i = 0; i < 3; i++) {
       const item = list[i] || { name: '---', score: 0 };
       top3Container.innerHTML += `
@@ -962,16 +635,23 @@
       `;
     }
 
-    for (let i = 3; i < list.length; i++) {
-      const item = list[i] || { name: '---', score: 0 };
+    // Render Remaining Rank Rows (Up to Top 100 organically without fake padding)
+    if (list.length === 0) {
       const tr = document.createElement('tr');
-      tr.className = 'hover:bg-white/5 transition-colors';
-      tr.innerHTML = `
-        <td class="py-1.5 pl-2 font-black text-white/50">#${i + 1}</td>
-        <td class="py-1.5 font-bold text-white tracking-wide">${item.name}</td>
-        <td class="py-1.5 text-right pr-2 font-black text-amber-300">${item.score}</td>
-      `;
+      tr.innerHTML = `<td colspan="3" class="py-4 text-center text-white/40 text-xs font-bold">No scores recorded yet. Be the first!</td>`;
       rowsContainer.appendChild(tr);
+    } else {
+      for (let i = 3; i < list.length; i++) {
+        const item = list[i];
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-white/5 transition-colors';
+        tr.innerHTML = `
+          <td class="py-1.5 pl-2 font-black text-white/50">#${i + 1}</td>
+          <td class="py-1.5 font-bold text-white tracking-wide">${item.name}</td>
+          <td class="py-1.5 text-right pr-2 font-black text-amber-300">${item.score}</td>
+        `;
+        rowsContainer.appendChild(tr);
+      }
     }
   }
 
@@ -1045,5 +725,3 @@
   loop();
 })();
 </script>
-</body>
-</html>
