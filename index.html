@@ -160,21 +160,45 @@
       date: new Date().toISOString().split('T')[0]
     };
 
-    const currentList = getLeaderboard(worldKey);
-    currentList.push(newEntry);
-    currentList.sort((a, b) => b.score - a.score);
-    const top100 = currentList.slice(0, 100);
-    leaderboardCache[worldKey] = top100;
-
-    try {
-      localStorage.setItem(getLocalStorageKey(worldKey), JSON.stringify(top100));
-    } catch(e) {}
-
     if (db) {
       try {
         const scoreId = `${playerName}_${Date.now()}`;
+        // 1. Save new score entry to Firestore
         await db.collection('leaderboards').doc(worldKey).collection('scores').doc(scoreId).set(newEntry);
-      } catch (e) {}
+
+        // 2. Query all scores descending to prune anything pushed past rank 100
+        const snapshot = await db.collection('leaderboards').doc(worldKey).collection('scores').orderBy('score', 'desc').get();
+        if (snapshot.size > 100) {
+          const docs = snapshot.docs;
+          // Delete any document from index 100 onwards (rank 101+)
+          for (let i = 100; i < docs.length; i++) {
+            await docs[i].ref.delete();
+          }
+        }
+
+        // 3. Refresh cache directly from Firestore
+        const freshSnapshot = await db.collection('leaderboards').doc(worldKey).collection('scores').orderBy('score', 'desc').limit(100).get();
+        const scoresList = [];
+        freshSnapshot.forEach(doc => scoresList.push(doc.data()));
+        leaderboardCache[worldKey] = scoresList;
+        try { localStorage.setItem(getLocalStorageKey(worldKey), JSON.stringify(scoresList)); } catch(e){}
+
+      } catch (e) {
+        // Fallback local management if offline
+        const currentList = getLeaderboard(worldKey);
+        currentList.push(newEntry);
+        currentList.sort((a, b) => b.score - a.score);
+        const top100 = currentList.slice(0, 100);
+        leaderboardCache[worldKey] = top100;
+        try { localStorage.setItem(getLocalStorageKey(worldKey), JSON.stringify(top100)); } catch(e){}
+      }
+    } else {
+      const currentList = getLeaderboard(worldKey);
+      currentList.push(newEntry);
+      currentList.sort((a, b) => b.score - a.score);
+      const top100 = currentList.slice(0, 100);
+      leaderboardCache[worldKey] = top100;
+      try { localStorage.setItem(getLocalStorageKey(worldKey), JSON.stringify(top100)); } catch(e){}
     }
   }
 
@@ -623,7 +647,6 @@
     const medals = ['🥇 1st', '🥈 2nd', '🥉 3rd'];
     const colors = ['border-amber-400 bg-amber-400/10 text-amber-300', 'border-slate-300 bg-slate-300/10 text-slate-200', 'border-amber-600 bg-amber-600/10 text-amber-500'];
 
-    // Render Top 3 Cards dynamically based on available records
     for (let i = 0; i < 3; i++) {
       const item = list[i] || { name: '---', score: 0 };
       top3Container.innerHTML += `
@@ -635,7 +658,6 @@
       `;
     }
 
-    // Render Remaining Rank Rows (Up to Top 100 organically without fake padding)
     if (list.length === 0) {
       const tr = document.createElement('tr');
       tr.innerHTML = `<td colspan="3" class="py-4 text-center text-white/40 text-xs font-bold">No scores recorded yet. Be the first!</td>`;
