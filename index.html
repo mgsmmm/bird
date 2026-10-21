@@ -117,95 +117,154 @@
   let wormsEaten = 0;
   let soundEnabled = true;
 
+  // Leaderboards: local cache is available immediately; cloud reads are lazy.
+  const LEADERBOARD_LIMIT = 50;
+  const VALID_WORLDS = new Set(['parrot', 'eagle', 'red']);
+  const SCORE_FETCH_TIMEOUT_MS = 8000;
+  const SCORE_WRITE_TIMEOUT_MS = 5000;
   let leaderboardCache = { parrot: [], eagle: [], red: [] };
+  let leaderboardLoaded = { parrot: false, eagle: false, red: false };
+  let leaderboardRequests = Object.create(null);
+  let scoreSubmitting = false;
 
   function getLocalStorageKey(worldKey) {
     return `feathered_flyers_lb_${worldKey}`;
   }
 
-  async function fetchLeaderboards() {
-    for (const key of ['parrot', 'eagle', 'red']) {
-      try {
-        if (!db) throw new Error("No db");
-        const snapshot = await db.collection('leaderboards').doc(key).collection('scores').orderBy('score', 'desc').limit(100).get();
-        if (!snapshot.empty) {
-          const scoresList = [];
-          snapshot.forEach(doc => scoresList.push(doc.data()));
-          leaderboardCache[key] = scoresList;
-          try { localStorage.setItem(getLocalStorageKey(key), JSON.stringify(scoresList)); } catch(e){}
-        } else {
-          const localData = localStorage.getItem(getLocalStorageKey(key));
-          leaderboardCache[key] = localData ? JSON.parse(localData) : [];
-        }
-      } catch (e) {
-        try {
-          const localData = localStorage.getItem(getLocalStorageKey(key));
-          leaderboardCache[key] = localData ? JSON.parse(localData) : [];
-        } catch (err) {
-          leaderboardCache[key] = [];
-        }
+  function validWorld(worldKey) {
+    return typeof worldKey === 'string' && VALID_WORLDS.has(worldKey);
+  }
+
+  function cleanScoreEntry(entry) {
+    if (!entry || typeof entry !== 'object') return null;
+    const name = typeof entry.name === 'string'
+      ? entry.name.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6)
+      : '';
+    const scoreValue = Number(entry.score);
+    if (name.length < 3 || name.length > 6 ||
+        !Number.isSafeInteger(scoreValue) || scoreValue < 1 || scoreValue > 1000000) return null;
+    const date = typeof entry.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(entry.date)
+      ? entry.date : '';
+    return { name, score: scoreValue, date };
+  }
+
+  function normalizeScoreList(items) {
+    if (!Array.isArray(items)) return [];
+    return items.map(cleanScoreEntry).filter(Boolean)
+      .sort((a, b) => b.score - a.score).slice(0, LEADERBOARD_LIMIT);
+  }
+
+  function readLocalLeaderboard(worldKey) {
+    if (!validWorld(worldKey)) return [];
+    try {
+      const raw = localStorage.getItem(getLocalStorageKey(worldKey));
+      return raw ? normalizeScoreList(JSON.parse(raw)) : [];
+    } catch (e) { return []; }
+  }
+
+  function writeLocalLeaderboard(worldKey, entries) {
+    if (!validWorld(worldKey)) return;
+    try {
+      localStorage.setItem(getLocalStorageKey(worldKey), JSON.stringify(normalizeScoreList(entries)));
+    } catch (e) { /* Storage may be disabled or full; keep the in-memory cache. */ }
+  }
+
+  function loadLocalCaches() {
+    for (const key of VALID_WORLDS) leaderboardCache[key] = readLocalLeaderboard(key);
+  }
+
+  function withTimeout(promise, timeoutMs, message) {
+    let timeoutId;
+    const timeout = new Promise((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs);
+    });
+    return Promise.race([promise, timeout]).finally(() => clearTimeout(timeoutId));
+  }
+
+  async function fetchLeaderboard(worldKey, forceRefresh = false) {
+    if (!validWorld(worldKey)) return [];
+    if (leaderboardRequests[worldKey]) return leaderboardRequests[worldKey];
+    if (leaderboardLoaded[worldKey] && !forceRefresh) return getLeaderboard(worldKey);
+
+    const request = (async () => {
+      const localList = readLocalLeaderboard(worldKey);
+      if (!leaderboardCache[worldKey].length || localList.length) leaderboardCache[worldKey] = localList;
+
+      if (!db || (typeof navigator !== 'undefined' && navigator.onLine === false)) {
+        leaderboardLoaded[worldKey] = true;
+        return getLeaderboard(worldKey);
       }
-    }
-    bestDisplay.textContent = getBestScore(activeCharKey);
+
+      try {
+        const snapshot = await withTimeout(
+          db.collection('leaderboards').doc(worldKey).collection('scores')
+            .orderBy('score', 'desc').limit(LEADERBOARD_LIMIT).get(),
+          SCORE_FETCH_TIMEOUT_MS, 'Leaderboard request timed out'
+        );
+        const cloudList = [];
+        snapshot.forEach(doc => {
+          const entry = cleanScoreEntry(doc.data());
+          if (entry) cloudList.push(entry);
+        });
+        leaderboardCache[worldKey] = normalizeScoreList(cloudList);
+        writeLocalLeaderboard(worldKey, leaderboardCache[worldKey]);
+      } catch (e) {
+        // Offline, quota, permission, and network failures use the local cache.
+        leaderboardCache[worldKey] = localList;
+      }
+      leaderboardLoaded[worldKey] = true;
+      if (worldKey === activeCharKey && bestDisplay) bestDisplay.textContent = getBestScore(worldKey);
+      return getLeaderboard(worldKey);
+    })();
+
+    leaderboardRequests[worldKey] = request;
+    try { return await request; }
+    finally { delete leaderboardRequests[worldKey]; }
   }
 
   function getLeaderboard(worldKey) {
-    return leaderboardCache[worldKey] || [];
+    return validWorld(worldKey) ? (leaderboardCache[worldKey] || []) : [];
   }
 
   async function saveScoreToCloud(worldKey, playerName, playerScore) {
-    const newEntry = {
-      name: playerName,
-      score: playerScore,
-      date: new Date().toISOString().split('T')[0]
-    };
+    const name = typeof playerName === 'string'
+      ? playerName.trim().toUpperCase().replace(/[^A-Z0-9]/g, '') : '';
+    const scoreValue = Number(playerScore);
+    if (!validWorld(worldKey)) throw new Error('Invalid world.');
+    if (name.length < 3 || name.length > 6) throw new Error('Name must be 3–6 letters or numbers.');
+    if (!Number.isSafeInteger(scoreValue) || scoreValue < 1 || scoreValue > 1000000) {
+      throw new Error('Invalid score.');
+    }
 
-    if (db) {
-      try {
-        const scoreId = `${playerName}_${Date.now()}`;
-        // 1. Save new score entry to Firestore
-        await db.collection('leaderboards').doc(worldKey).collection('scores').doc(scoreId).set(newEntry);
+    const newEntry = { name, score: scoreValue, date: new Date().toISOString().slice(0, 10) };
+    const merged = normalizeScoreList([...getLeaderboard(worldKey), newEntry]);
+    leaderboardCache[worldKey] = merged;
+    leaderboardLoaded[worldKey] = true;
+    writeLocalLeaderboard(worldKey, merged);
 
-        // 2. Query all scores descending to prune anything pushed past rank 100
-        const snapshot = await db.collection('leaderboards').doc(worldKey).collection('scores').orderBy('score', 'desc').get();
-        if (snapshot.size > 100) {
-          const docs = snapshot.docs;
-          // Delete any document from index 100 onwards (rank 101+)
-          for (let i = 100; i < docs.length; i++) {
-            await docs[i].ref.delete();
-          }
-        }
+    if (!db || (typeof navigator !== 'undefined' && navigator.onLine === false)) {
+      return { savedLocally: true, savedToCloud: false };
+    }
 
-        // 3. Refresh cache directly from Firestore
-        const freshSnapshot = await db.collection('leaderboards').doc(worldKey).collection('scores').orderBy('score', 'desc').limit(100).get();
-        const scoresList = [];
-        freshSnapshot.forEach(doc => scoresList.push(doc.data()));
-        leaderboardCache[worldKey] = scoresList;
-        try { localStorage.setItem(getLocalStorageKey(worldKey), JSON.stringify(scoresList)); } catch(e){}
-
-      } catch (e) {
-        // Fallback local management if offline
-        const currentList = getLeaderboard(worldKey);
-        currentList.push(newEntry);
-        currentList.sort((a, b) => b.score - a.score);
-        const top100 = currentList.slice(0, 100);
-        leaderboardCache[worldKey] = top100;
-        try { localStorage.setItem(getLocalStorageKey(worldKey), JSON.stringify(top100)); } catch(e){}
-      }
-    } else {
-      const currentList = getLeaderboard(worldKey);
-      currentList.push(newEntry);
-      currentList.sort((a, b) => b.score - a.score);
-      const top100 = currentList.slice(0, 100);
-      leaderboardCache[worldKey] = top100;
-      try { localStorage.setItem(getLocalStorageKey(worldKey), JSON.stringify(top100)); } catch(e){}
+    try {
+      const docId = (window.crypto && typeof window.crypto.randomUUID === 'function')
+        ? window.crypto.randomUUID()
+        : `score_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
+      await withTimeout(
+        db.collection('leaderboards').doc(worldKey).collection('scores').doc(docId).set(newEntry),
+        SCORE_WRITE_TIMEOUT_MS, 'Score upload timed out'
+      );
+      return { savedLocally: true, savedToCloud: true };
+    } catch (e) {
+      // The local result remains available if Firebase fails or is slow.
+      return { savedLocally: true, savedToCloud: false };
     }
   }
 
-  function isTop100Score(worldKey, testScore) {
-    if (testScore <= 0) return false;
+  function isTop50Score(worldKey, testScore) {
+    if (!validWorld(worldKey) || !Number.isSafeInteger(testScore) || testScore <= 0) return false;
     const lb = getLeaderboard(worldKey);
-    if (lb.length < 100) return true;
+    if (lb.length < LEADERBOARD_LIMIT) return true;
     return testScore > lb[lb.length - 1].score;
   }
 
@@ -353,7 +412,8 @@
     canvasBox.classList.add('shake');
   }
 
-  function endGame() {
+  async function endGame() {
+    if (state !== 'playing') return;
     state = 'over';
     playSound('hit');
     triggerScreenShake();
@@ -362,15 +422,21 @@
     finalBest.textContent = getBestScore(activeCharKey);
     finalWorms.textContent = wormsEaten;
     bestDisplay.textContent = getBestScore(activeCharKey);
+    overModal.classList.remove('hidden');
 
-    if (isTop100Score(activeCharKey, score)) {
+    // Fetch only this world's leaderboard after a run ends.
+    await fetchLeaderboard(activeCharKey);
+    if (state !== 'over') return;
+
+    finalBest.textContent = getBestScore(activeCharKey);
+    bestDisplay.textContent = getBestScore(activeCharKey);
+    if (isTop50Score(activeCharKey, score)) {
       playSound('triumph');
       hsScoreDisplay.textContent = score;
       playerNameInput.value = '';
       nameInputError.classList.add('hidden');
+      overModal.classList.add('hidden');
       highscoreModal.classList.remove('hidden');
-    } else {
-      overModal.classList.remove('hidden');
     }
   }
 
@@ -555,7 +621,7 @@
           scoreDisplay.textContent = score;
           addFloatText(flyer.x, flyer.y - 20, '+1', '#6ee7b7');
         }
-        if (checkCollision(o)) endGame();
+        if (state === 'playing' && checkCollision(o)) { endGame(); return; }
       });
 
       worms.forEach(w => {
@@ -625,9 +691,11 @@
   }
 
   window.setLeaderboardTab = function(tabKey) {
+    if (!validWorld(tabKey)) return;
     activeLeaderboardTab = tabKey;
     ['parrot', 'eagle', 'red'].forEach(k => {
       const btn = document.getElementById(`tab-${k}`);
+      if (!btn) return;
       if (k === tabKey) {
         btn.className = 'flex-1 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all bg-emerald-500 text-slate-950 shadow';
       } else {
@@ -636,6 +704,12 @@
     });
     renderLeaderboardContent();
   };
+
+  function escapeLeaderboardText(value) {
+    return String(value ?? '').replace(/[&<>"']/g, ch => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[ch]);
+  }
 
   function renderLeaderboardContent() {
     const list = getLeaderboard(activeLeaderboardTab);
@@ -647,17 +721,19 @@
     const medals = ['🥇 1st', '🥈 2nd', '🥉 3rd'];
     const colors = ['border-amber-400 bg-amber-400/10 text-amber-300', 'border-slate-300 bg-slate-300/10 text-slate-200', 'border-amber-600 bg-amber-600/10 text-amber-500'];
 
+    // Render Top 3 Cards dynamically based on available records
     for (let i = 0; i < 3; i++) {
       const item = list[i] || { name: '---', score: 0 };
       top3Container.innerHTML += `
         <div class="border ${colors[i]} rounded-xl p-2 text-center flex flex-col justify-center">
           <div class="text-[8px] sm:text-[10px] font-black uppercase tracking-wider">${medals[i]}</div>
-          <div class="text-[11px] sm:text-sm font-black truncate my-0.5">${item.name}</div>
+          <div class="text-[11px] sm:text-sm font-black truncate my-0.5">${escapeLeaderboardText(item.name)}</div>
           <div class="text-sm sm:text-lg font-black">${item.score}</div>
         </div>
       `;
     }
 
+    // Render Remaining Rank Rows (Up to Top 100 organically without fake padding)
     if (list.length === 0) {
       const tr = document.createElement('tr');
       tr.innerHTML = `<td colspan="3" class="py-4 text-center text-white/40 text-xs font-bold">No scores recorded yet. Be the first!</td>`;
@@ -669,7 +745,7 @@
         tr.className = 'hover:bg-white/5 transition-colors';
         tr.innerHTML = `
           <td class="py-1.5 pl-2 font-black text-white/50">#${i + 1}</td>
-          <td class="py-1.5 font-bold text-white tracking-wide">${item.name}</td>
+          <td class="py-1.5 font-bold text-white tracking-wide">${escapeLeaderboardText(item.name)}</td>
           <td class="py-1.5 text-right pr-2 font-black text-amber-300">${item.score}</td>
         `;
         rowsContainer.appendChild(tr);
@@ -678,29 +754,50 @@
   }
 
   async function showLeaderboardModal(worldKey = activeCharKey) {
+    if (!validWorld(worldKey)) worldKey = activeCharKey;
     leaderboardLoading.classList.remove('hidden');
     leaderboardModal.classList.remove('hidden');
     setLeaderboardTab(worldKey);
-    await fetchLeaderboards();
-    leaderboardLoading.classList.add('hidden');
     renderLeaderboardContent();
+    try {
+      await fetchLeaderboard(worldKey, true);
+    } catch (e) {
+      // Keep the modal responsive even if a provider unexpectedly throws.
+    } finally {
+      leaderboardLoading.classList.add('hidden');
+      if (leaderboardModal && !leaderboardModal.classList.contains('hidden')) renderLeaderboardContent();
+    }
   }
 
   document.getElementById('submitScoreBtn').addEventListener('click', async () => {
-    let val = playerNameInput.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (scoreSubmitting) return;
+    const val = playerNameInput.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
     playerNameInput.value = val;
 
-    if (val.length < 3 || val.length > 6) {
+    if (val.length < 3 || val.length > 6 || !validWorld(activeCharKey) ||
+        !Number.isSafeInteger(score) || score < 1 || score > 1000000) {
+      nameInputError.textContent = 'Enter 3–6 letters/numbers and a valid score.';
       nameInputError.classList.remove('hidden');
       return;
     }
-    nameInputError.classList.add('hidden');
-    
-    await saveScoreToCloud(activeCharKey, val, score);
-    bestDisplay.textContent = getBestScore(activeCharKey);
 
-    highscoreModal.classList.add('hidden');
-    overModal.classList.remove('hidden');
+    scoreSubmitting = true;
+    const submitButton = document.getElementById('submitScoreBtn');
+    if (submitButton) submitButton.disabled = true;
+    nameInputError.classList.add('hidden');
+
+    try {
+      await saveScoreToCloud(activeCharKey, val, score);
+      bestDisplay.textContent = getBestScore(activeCharKey);
+      highscoreModal.classList.add('hidden');
+      overModal.classList.remove('hidden');
+    } catch (e) {
+      nameInputError.textContent = 'Could not save this score. Please try again.';
+      nameInputError.classList.remove('hidden');
+    } finally {
+      scoreSubmitting = false;
+      if (submitButton) submitButton.disabled = false;
+    }
   });
 
   canvas.addEventListener('pointerdown', e => { 
@@ -743,7 +840,8 @@
 
   updateResolutionAndPhysics();
   switchCharacter('parrot');
-  fetchLeaderboards().then(() => resetGame());
+  loadLocalCaches();
+  resetGame();
   loop();
 })();
 </script>
